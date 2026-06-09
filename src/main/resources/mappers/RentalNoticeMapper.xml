@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.dao.RentalNoticeMapper">
+    <resultMap id="noticeMap" type="com.happyhome.dto.RentalNotice">
+        <constructor>
+            <arg column="notice_id" javaType="string"/>
+            <arg column="title" javaType="string"/>
+            <arg column="region_name" javaType="string"/>
+            <arg column="notice_type" javaType="string"/>
+            <arg column="detail_type" javaType="string"/>
+            <arg column="status" javaType="string"/>
+            <arg column="notice_date" javaType="string"/>
+            <arg column="close_date" javaType="string"/>
+            <arg column="detail_url" javaType="string"/>
+            <arg column="ccr_cnnt_sys_ds_cd" javaType="string"/>
+            <arg column="upp_ais_tp_cd" javaType="string"/>
+            <arg column="ais_tp_cd" javaType="string"/>
+            <arg column="spl_inf_tp_cd" javaType="string"/>
+            <arg column="source" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="upsert">
+        INSERT INTO rental_notice_cache (
+            notice_id, title, region_name, notice_type, detail_type, status,
+            notice_date, close_date, detail_url, ccr_cnnt_sys_ds_cd, upp_ais_tp_cd,
+            ais_tp_cd, spl_inf_tp_cd, source, cached_at
+        ) VALUES (
+            #{noticeId}, #{title}, #{regionName}, #{noticeType}, #{detailType}, #{status},
+            #{noticeDate}, #{closeDate}, #{detailUrl}, #{ccrCnntSysDsCd}, #{uppAisTpCd},
+            #{aisTpCd}, #{splInfTpCd}, #{source}, CURRENT_TIMESTAMP
+        )
+        ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            region_name = VALUES(region_name),
+            notice_type = VALUES(notice_type),
+            detail_type = VALUES(detail_type),
+            status = VALUES(status),
+            notice_date = VALUES(notice_date),
+            close_date = VALUES(close_date),
+            detail_url = VALUES(detail_url),
+            ccr_cnnt_sys_ds_cd = VALUES(ccr_cnnt_sys_ds_cd),
+            upp_ais_tp_cd = VALUES(upp_ais_tp_cd),
+            ais_tp_cd = VALUES(ais_tp_cd),
+            spl_inf_tp_cd = VALUES(spl_inf_tp_cd),
+            source = VALUES(source),
+            cached_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <select id="findRecent" resultMap="noticeMap">
+        SELECT * FROM rental_notice_cache ORDER BY cached_at DESC LIMIT 30
+    </select>
+
+    <select id="findById" resultMap="noticeMap">
+        SELECT * FROM rental_notice_cache WHERE notice_id = #{noticeId}
+    </select>
+</mapper>
+

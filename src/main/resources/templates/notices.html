@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="section-head">
+    <div>
+      <p class="eyebrow">Notice</p>
+      <h1 style="font-size:clamp(34px,4.6vw,64px);line-height:1.08">공지사항</h1>
+      <p class="muted">서비스 안내, 공공임대 소식, 운영 공지를 한곳에서 확인합니다.</p>
+    </div>
+    <a class="button primary" th:href="@{/notices/new}">공지 작성</a>
+  </section>
+
+  <p th:if="${message}" class="alert" th:text="${message}">알림</p>
+
+  <section class="panel">
+    <p th:if="${#lists.isEmpty(notices)}" class="muted">등록된 공지사항이 없습니다.</p>
+    <div th:if="${!#lists.isEmpty(notices)}" class="table-wrap">
+      <table class="table">
+        <tr>
+          <th>상태</th>
+          <th>제목</th>
+          <th>작성자</th>
+          <th>작성일</th>
+        </tr>
+        <tr th:each="notice : ${notices}">
+          <td>
+            <span class="tag" th:if="${notice.pinned}">PIN</span>
+            <span class="tag" th:if="${notice.popupEnabled}">POPUP</span>
+          </td>
+          <td>
+            <a class="text-link" th:href="@{/notices/{id}(id=${notice.noticeId})}" th:text="${notice.title}">공지 제목</a>
+          </td>
+          <td th:text="${notice.writer}">admin</td>
+          <td th:text="${#temporals.format(notice.createdAt, 'yyyy.MM.dd HH:mm')}">2026.05.22</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>

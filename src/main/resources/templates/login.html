@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="auth-page">
+  <section class="auth-visual">
+    <div>
+      <p class="eyebrow">SSAFY Home</p>
+      <h1>WITH YOUR LIFE,<br>BETTER YOUR LIFE</h1>
+      <p class="hero-copy">실거래가와 공공임대 정보를 한 곳에서 확인하는 주거 데이터 서비스입니다.</p>
+    </div>
+  </section>
+  <section class="auth-panel">
+    <div class="auth-box">
+      <a th:href="@{/home}" class="brand auth-brand">
+        <span class="brand-mark">HOME</span>
+        <strong>SSAFY Home</strong>
+      </a>
+      <h1>로그인</h1>
+      <p th:if="${message}" th:text="${message}" class="alert"></p>
+      <form method="post" th:action="@{/login}" class="auth-form">
+        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <label>
+          <span>아이디</span>
+          <input name="userId" autocomplete="username" required>
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">로그인</button>
+      </form>
+      <div class="auth-links">
+        <a th:href="@{/register}">회원가입</a>
+        <a th:href="@{/password-find}">비밀번호 찾기</a>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

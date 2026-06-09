@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.dao.HouseDealMapper">
+    <resultMap id="houseDealMap" type="com.happyhome.dto.HouseDeal">
+        <id column="no" property="no"/>
+        <result column="apt_seq" property="aptSeq"/>
+        <result column="apt_nm" property="aptName"/>
+        <result column="sido_name" property="sidoName"/>
+        <result column="gugun_name" property="gugunName"/>
+        <result column="dong_name" property="dongName"/>
+        <result column="umd_nm" property="umdName"/>
+        <result column="jibun" property="jibun"/>
+        <result column="road_nm" property="roadName"/>
+        <result column="build_year" property="buildYear"/>
+        <result column="latitude" property="latitude"/>
+        <result column="longitude" property="longitude"/>
+        <result column="apt_dong" property="aptDong"/>
+        <result column="floor" property="floor"/>
+        <result column="deal_year" property="dealYear"/>
+        <result column="deal_month" property="dealMonth"/>
+        <result column="deal_day" property="dealDay"/>
+        <result column="exclu_use_ar" property="exclusiveArea"/>
+        <result column="deal_amount" property="dealAmount"/>
+    </resultMap>
+
+    <sql id="selectClause">
+        SELECT
+            d.no,
+            h.apt_seq,
+            h.apt_nm,
+            dc.sido_name,
+            dc.gugun_name,
+            dc.dong_name,
+            h.umd_nm,
+            h.jibun,
+            h.road_nm,
+            h.build_year,
+            h.latitude,
+            h.longitude,
+            d.apt_dong,
+            d.floor,
+            d.deal_year,
+            d.deal_month,
+            d.deal_day,
+            d.exclu_use_ar,
+            d.deal_amount
+    </sql>
+
+    <sql id="baseFrom">
+        FROM housedeals d
+        JOIN houseinfos h ON d.apt_seq = h.apt_seq
+        LEFT JOIN dongcodes dc ON CONCAT(h.sgg_cd, h.umd_cd) = dc.dong_code
+    </sql>
+
+    <select id="search" resultMap="houseDealMap">
+        <include refid="selectClause"/>
+        <include refid="baseFrom"/>
+        <where>
+            <if test="keyword != null and keyword.trim() != ''">
+                <bind name="keywordLike" value="'%' + keyword.trim() + '%'"/>
+                AND (
+                    h.apt_nm LIKE #{keywordLike}
+                    OR dc.sido_name LIKE #{keywordLike}
+                    OR dc.gugun_name LIKE #{keywordLike}
+                    OR dc.dong_name LIKE #{keywordLike}
+                    OR h.umd_nm LIKE #{keywordLike}
+                )
+            </if>
+            <if test="sidoName != null and sidoName.trim() != ''">
+                <bind name="sidoNameLike" value="'%' + sidoName.trim() + '%'"/>
+                AND dc.sido_name LIKE #{sidoNameLike}
+            </if>
+            <if test="gugunName != null and gugunName.trim() != ''">
+                <bind name="gugunNameLike" value="'%' + gugunName.trim() + '%'"/>
+                AND dc.gugun_name LIKE #{gugunNameLike}
+            </if>
+            <if test="dongName != null and dongName.trim() != ''">
+                <bind name="dongNameLike" value="'%' + dongName.trim() + '%'"/>
+                AND (dc.dong_name LIKE #{dongNameLike} OR h.umd_nm LIKE #{dongNameLike})
+            </if>
+            <if test="lawdCd != null and lawdCd.trim() != '' and lawdCd.trim().length() &gt;= 5">
+                <bind name="sggCd" value="lawdCd.trim().substring(0, 5)"/>
+                AND h.sgg_cd = #{sggCd}
+            </if>
+            <if test="dealYear != null">
+                AND d.deal_year = #{dealYear}
+            </if>
+            <if test="dealYearFromYmd != null">
+                AND d.deal_year = #{dealYearFromYmd}
+            </if>
+            <if test="dealMonthFromYmd != null">
+                AND d.deal_month = #{dealMonthFromYmd}
+            </if>
+        </where>
+        ORDER BY d.deal_year DESC, d.deal_month DESC, d.deal_day DESC, d.no DESC
+        LIMIT #{safeLimit}
+    </select>
+
+    <select id="findByNo" resultMap="houseDealMap">
+        <include refid="selectClause"/>
+        <include refid="baseFrom"/>
+        WHERE d.no = #{no}
+    </select>
+
+    <select id="findByNos" resultMap="houseDealMap">
+        <include refid="selectClause"/>
+        <include refid="baseFrom"/>
+        WHERE d.no IN
+        <foreach collection="dealNos" item="dealNo" open="(" separator="," close=")">
+            #{dealNo}
+        </foreach>
+        ORDER BY FIELD(d.no,
+        <foreach collection="dealNos" item="dealNo" separator=",">
+            #{dealNo}
+        </foreach>
+        )
+    </select>
+
+    <select id="findRecent" resultMap="houseDealMap">
+        <include refid="selectClause"/>
+        FROM (
+            SELECT no
+            FROM housedeals
+            ORDER BY deal_year DESC, deal_month DESC, deal_day DESC, no DESC
+            LIMIT #{limit}
+        ) recent
+        JOIN housedeals d ON d.no = recent.no
+        JOIN houseinfos h ON d.apt_seq = h.apt_seq
+        LEFT JOIN dongcodes dc ON CONCAT(h.sgg_cd, h.umd_cd) = dc.dong_code
+        ORDER BY d.deal_year DESC, d.deal_month DESC, d.deal_day DESC, d.no DESC
+    </select>
+</mapper>

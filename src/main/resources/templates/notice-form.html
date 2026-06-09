@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="${mode == 'edit' ? '공지 수정' : '공지 작성'} + ' | SSAFY Home'">공지 작성 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="member-panel narrow panel">
+    <p class="eyebrow">Notice Editor</p>
+    <h1 th:text="${mode == 'edit' ? '공지 수정' : '공지 작성'}">공지 작성</h1>
+    <p th:if="${message}" class="alert error" th:text="${message}">알림</p>
+
+    <form class="auth-form"
+          th:action="${mode == 'edit'} ? @{/notices/{id}(id=${notice.noticeId})} : @{/notices}"
+          method="post">
+      <label>
+        제목
+        <input name="title" th:value="${notice.title}" maxlength="200" required>
+      </label>
+      <label>
+        작성자
+        <input name="writer" th:value="${notice.writer}" maxlength="50" required>
+      </label>
+      <label>
+        내용
+        <textarea name="content" rows="10" required th:text="${notice.content}"></textarea>
+      </label>
+      <div class="notice-options">
+        <label>
+          <input type="checkbox" name="popupEnabled" value="true" th:checked="${notice.popupEnabled}">
+          메인 팝업으로 노출
+        </label>
+        <label>
+          <input type="checkbox" name="pinned" value="true" th:checked="${notice.pinned}">
+          목록 상단 고정
+        </label>
+        <label>
+          <input type="checkbox" name="visible" value="true" th:checked="${notice.visible}">
+          사용자에게 노출
+        </label>
+      </div>
+      <button type="submit" th:text="${mode == 'edit' ? '수정 완료' : '등록'}">등록</button>
+    </form>
+
+    <div class="auth-links">
+      <a th:href="@{/notices}">목록으로</a>
+    </div>
+  </section>
+</main>
+</body>
+</html>

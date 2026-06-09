@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공공임대 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="section-head">
+    <div>
+      <p class="eyebrow">LH Rental Notice</p>
+      <h1 style="font-size:clamp(34px,4vw,56px);line-height:1.08">공공임대 공고</h1>
+      <p class="muted">LH 공공임대 모집 공고와 공급 정보를 한 곳에서 확인합니다.</p>
+    </div>
+  </section>
+
+  <form class="search" action="/rentals" method="get">
+    <input type="search" name="keyword" th:value="${condition.keyword()}" placeholder="공고명 검색">
+    <input name="regionCode" th:value="${condition.regionCode()}" placeholder="지역 코드">
+    <select name="status">
+      <option value="" th:selected="${condition.status() == ''}">전체</option>
+      <option value="공고중" th:selected="${condition.status() == '공고중'}">공고중</option>
+      <option value="접수중" th:selected="${condition.status() == '접수중'}">접수중</option>
+    </select>
+    <button type="submit">조회</button>
+  </form>
+
+  <p th:if="${#lists.isEmpty(notices)}" class="panel muted">표시할 공고가 없습니다.</p>
+  <section th:if="${!#lists.isEmpty(notices)}" class="grid">
+    <article th:each="notice : ${notices}" class="card">
+      <span class="tag" th:text="${notice.source() == 'api' ? 'LIVE API' : 'SAMPLE'}">LIVE API</span>
+      <h3 th:text="${notice.title()}">공고명</h3>
+      <p class="muted" th:text="${notice.regionName()} + ' · ' + ${notice.detailType()}">지역 · 유형</p>
+      <p>
+        <strong th:text="${notice.status()}">공고중</strong><br>
+        <span class="muted" th:text="'공고일 ' + ${notice.noticeDate()}">공고일</span><br>
+        <span class="muted" th:text="'마감 ' + ${notice.closeDate()}">마감일</span>
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="button primary" th:href="@{/rentals/{id}(id=${notice.noticeId()})}">상세 보기</a>
+        <a class="button" th:if="${notice.detailUrl() != null and !#strings.isEmpty(notice.detailUrl())}"
+           th:href="${notice.detailUrl()}" target="_blank" rel="noreferrer">LH 원문</a>
+      </div>
+    </article>
+  </section>
+</main>
+</body>
+</html>

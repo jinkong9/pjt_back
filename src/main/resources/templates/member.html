@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마이페이지 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="panel member-panel">
+    <p class="eyebrow">My Page</p>
+    <h1>회원 정보</h1>
+    <p th:if="${message}" th:text="${message}" class="alert"></p>
+
+    <div th:if="${session.loginMember != null}">
+      <dl class="member-grid">
+        <div>
+          <dt>아이디</dt>
+          <dd th:text="${session.loginMember.userId}">ssafy</dd>
+        </div>
+        <div>
+          <dt>이름</dt>
+          <dd th:text="${session.loginMember.name}">싸피</dd>
+        </div>
+        <div>
+          <dt>이메일</dt>
+          <dd th:text="${session.loginMember.email}">ssafy@example.com</dd>
+        </div>
+        <div>
+          <dt>전화번호</dt>
+          <dd th:text="${session.loginMember.phone}">010-0000-0000</dd>
+        </div>
+      </dl>
+      <div class="action-row">
+        <a class="button primary" th:href="@{/member/edit}">정보 수정</a>
+        <a class="button" th:href="@{/logout}">로그아웃</a>
+        <a class="button danger" th:href="@{/member/delete}" onclick="return confirm('회원 정보를 삭제할까요?')">회원 탈퇴</a>
+      </div>
+
+      <section class="favorite-section">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Favorite Deals</p>
+            <h2>관심매물</h2>
+          </div>
+          <a class="text-link" th:href="@{/prices}">지도에서 추가</a>
+        </div>
+        <p th:if="${favoriteDeals == null or #lists.isEmpty(favoriteDeals)}" class="muted">
+          아직 등록된 관심매물이 없습니다.
+        </p>
+        <div th:if="${favoriteDeals != null and !#lists.isEmpty(favoriteDeals)}" class="grid favorites-grid">
+          <article th:each="trade : ${favoriteDeals}" class="card">
+            <span class="tag">FAVORITE</span>
+            <h3 th:text="${trade.aptName}">아파트명</h3>
+            <p class="muted" th:text="${trade.address}">주소</p>
+            <p>
+              <strong th:text="|${trade.dealAmount}만원|">0만원</strong><br>
+              <span th:text="${trade.dealDate}">2026-01-01</span>
+              · 전용 <span th:text="${trade.exclusiveArea}">84.00</span>㎡
+              · <span th:text="${trade.floor}">10</span>층
+            </p>
+            <form method="post" th:action="@{/favorites/{no}/toggle(no=${trade.no})}">
+              <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <input type="hidden" name="redirect" value="/member">
+              <button type="submit" class="button danger">관심매물 해제</button>
+            </form>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>생활권 분석 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="section-head">
+    <div>
+      <p class="eyebrow" th:text="${analysis.source() == 'api' ? 'OPEN API' : 'SAMPLE FALLBACK'}">OPEN API</p>
+      <h1 style="font-size:clamp(34px,4.6vw,64px);line-height:1.08">AI 생활권 추천</h1>
+      <p class="muted">관심 지역의 상권 편의성과 ITS 교통 리스크를 함께 계산해 주거 후보지를 빠르게 비교합니다.</p>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-bottom:16px">
+    <h2 style="font-size:26px">분석 위치</h2>
+    <form class="search" action="/analysis" method="get" style="box-shadow:none;margin:18px 0 0">
+      <input name="label" placeholder="주소 또는 지역명" th:value="${analysis.label()}">
+      <input type="hidden" name="longitude" th:value="${analysis.longitude()}">
+      <input type="hidden" name="latitude" th:value="${analysis.latitude()}">
+      <input name="radius" placeholder="반경(m)" th:value="${analysis.radiusMeters()}">
+      <button type="submit">분석</button>
+    </form>
+    <div class="region-row" style="margin-top:16px">
+      <a href="/analysis?label=관악구 봉천동&longitude=126.9413&latitude=37.4826&radius=1000">관악구 봉천동</a>
+      <a href="/analysis?label=강남구 역삼동&longitude=127.0365&latitude=37.5008&radius=1000">강남구 역삼동</a>
+      <a href="/analysis?label=마포구 공덕동&longitude=126.9618&latitude=37.5445&radius=1000">마포구 공덕동</a>
+    </div>
+  </section>
+
+  <section class="metric-grid">
+    <article class="panel metric">
+      <span class="eyebrow">Score</span>
+      <strong th:text="${analysis.score().total()}">87</strong>
+      <p th:text="${analysis.score().level()}">좋음</p>
+    </article>
+    <article class="panel metric">
+      <span class="eyebrow">Commerce</span>
+      <strong th:text="${analysis.commercialSummary().totalCount()}">42</strong>
+      <p>반경 <span th:text="${analysis.radiusMeters()}">1000</span>m 생활 편의</p>
+    </article>
+    <article class="panel metric">
+      <span class="eyebrow">Traffic</span>
+      <strong th:text="${analysis.trafficRiskSummary().eventCount()}">2</strong>
+      <p th:text="${analysis.trafficRiskSummary().riskLevel()}">교통</p>
+    </article>
+    <article class="panel metric">
+      <span class="eyebrow">Roadwork</span>
+      <strong th:text="${analysis.trafficRiskSummary().roadworkCount()}">1</strong>
+      <p>공사/돌발 리스크</p>
+    </article>
+  </section>
+
+  <section class="split" style="margin-top:16px">
+    <article class="panel">
+      <h2>AI 추천 요약</h2>
+      <p class="muted" th:text="${analysis.score().message()}">요약</p>
+      <p class="muted">
+        현재 분석 위치:
+        <strong th:text="${analysis.label()}">지역</strong>
+      </p>
+    </article>
+    <article class="panel">
+      <h2>생활 편의 분포</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>외식</th><td th:text="${analysis.commercialSummary().foodCount()}">0</td></tr>
+          <tr><th>카페</th><td th:text="${analysis.commercialSummary().cafeCount()}">0</td></tr>
+          <tr><th>의료</th><td th:text="${analysis.commercialSummary().medicalCount()}">0</td></tr>
+          <tr><th>편의시설</th><td th:text="${analysis.commercialSummary().convenienceCount()}">0</td></tr>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="split" style="margin-top:16px">
+    <article class="panel">
+      <h2>주변 상권</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>상호</th><th>분류</th><th>주소</th></tr>
+          <tr th:each="place : ${analysis.places()}">
+            <td th:text="${place.name()}">상호</td>
+            <td th:text="${place.middleCategory()}">분류</td>
+            <td th:text="${place.address()}">주소</td>
+          </tr>
+        </table>
+      </div>
+    </article>
+    <article class="panel">
+      <h2>교통 이벤트</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>유형</th><th>내용</th><th>도로</th></tr>
+          <tr th:each="event : ${analysis.events()}">
+            <td th:text="${event.type()}">유형</td>
+            <td th:text="${event.message()}">내용</td>
+            <td th:text="${event.roadName()}">도로</td>
+          </tr>
+        </table>
+      </div>
+    </article>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.dao.FavoriteDealMapper">
+    <select id="count" resultType="int">
+        SELECT COUNT(*)
+        FROM favorite_deals
+        WHERE user_id = #{userId}
+          AND deal_no = #{dealNo}
+    </select>
+
+    <insert id="save">
+        INSERT IGNORE INTO favorite_deals (user_id, deal_no)
+        VALUES (#{userId}, #{dealNo})
+    </insert>
+
+    <delete id="delete">
+        DELETE FROM favorite_deals
+        WHERE user_id = #{userId}
+          AND deal_no = #{dealNo}
+    </delete>
+
+    <select id="findDealNosByUserId" resultType="int">
+        SELECT deal_no
+        FROM favorite_deals
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.dao.TransferMapper">
+    <resultMap id="transferMap" type="com.happyhome.dto.TransferDto">
+        <id column="transfer_id" property="transferId"/>
+        <result column="writer_id" property="writerId"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="status" property="status"/>
+        <result column="address" property="address"/>
+        <result column="detail_address" property="detailAddress"/>
+        <result column="floor" property="floor"/>
+        <result column="exclusive_area" property="exclusiveArea"/>
+        <result column="deposit_amount" property="depositAmount"/>
+        <result column="monthly_rent_amount" property="monthlyRentAmount"/>
+        <result column="maintenance_fee" property="maintenanceFee"/>
+        <result column="transfer_fee" property="transferFee"/>
+        <result column="contract_end_date" property="contractEndDate"/>
+        <result column="move_in_date" property="moveInDate"/>
+        <result column="contact_phone" property="contactPhone"/>
+        <result column="view_count" property="viewCount"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="transferColumns">
+        transfer_id, writer_id, title, content, status, address, detail_address, floor,
+        exclusive_area, deposit_amount, monthly_rent_amount, maintenance_fee, transfer_fee,
+        contract_end_date, move_in_date, contact_phone, view_count, created_at, updated_at
+    </sql>
+
+    <select id="findAll" resultMap="transferMap">
+        SELECT <include refid="transferColumns"/>
+        FROM transfers
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    title LIKE CONCAT('%', #{keyword}, '%')
+                    OR address LIKE CONCAT('%', #{keyword}, '%')
+                    OR detail_address LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY created_at DESC, transfer_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findById" resultMap="transferMap">
+        SELECT <include refid="transferColumns"/>
+        FROM transfers
+        WHERE transfer_id = #{transferId}
+    </select>
+
+    <select id="findImageUrls" resultType="string">
+        SELECT image_url
+        FROM transfer_images
+        WHERE transfer_id = #{transferId}
+        ORDER BY sort_order ASC, image_id ASC
+    </select>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="transferId">
+        INSERT INTO transfers (
+            writer_id, title, content, status, address, detail_address, floor,
+            exclusive_area, deposit_amount, monthly_rent_amount, maintenance_fee, transfer_fee,
+            contract_end_date, move_in_date, contact_phone
+        )
+        VALUES (
+            #{writerId}, #{title}, #{content}, #{status}, #{address}, #{detailAddress}, #{floor},
+            #{exclusiveArea}, #{depositAmount}, #{monthlyRentAmount}, #{maintenanceFee}, #{transferFee},
+            #{contractEndDate}, #{moveInDate}, #{contactPhone}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE transfers
+        SET title = #{title},
+            content = #{content},
+            status = #{status},
+            address = #{address},
+            detail_address = #{detailAddress},
+            floor = #{floor},
+            exclusive_area = #{exclusiveArea},
+            deposit_amount = #{depositAmount},
+            monthly_rent_amount = #{monthlyRentAmount},
+            maintenance_fee = #{maintenanceFee},
+            transfer_fee = #{transferFee},
+            contract_end_date = #{contractEndDate},
+            move_in_date = #{moveInDate},
+            contact_phone = #{contactPhone},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE transfer_id = #{transferId}
+    </update>
+
+    <update id="increaseViewCount">
+        UPDATE transfers
+        SET view_count = view_count + 1
+        WHERE transfer_id = #{transferId}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM transfers WHERE transfer_id = #{transferId}
+    </delete>
+
+    <delete id="deleteImagesByTransferId">
+        DELETE FROM transfer_images WHERE transfer_id = #{transferId}
+    </delete>
+
+    <insert id="saveImage">
+        INSERT INTO transfer_images (transfer_id, image_url, sort_order)
+        VALUES (#{transferId}, #{imageUrl}, #{sortOrder})
+    </insert>
+</mapper>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.dao.RegionMapper">
+    <resultMap id="regionOptionMap" type="com.happyhome.dto.RegionOptionDto">
+        <constructor>
+            <arg column="value" javaType="string"/>
+            <arg column="label" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findSidos" resultMap="regionOptionMap">
+        SELECT DISTINCT sido_name AS value, sido_name AS label
+        FROM dongcodes
+        WHERE sido_name IS NOT NULL AND sido_name &lt;&gt; ''
+        ORDER BY sido_name
+    </select>
+
+    <select id="findGuguns" resultMap="regionOptionMap">
+        SELECT DISTINCT gugun_name AS value, gugun_name AS label
+        FROM dongcodes
+        WHERE sido_name = #{sidoName}
+          AND gugun_name IS NOT NULL
+          AND gugun_name &lt;&gt; ''
+        ORDER BY gugun_name
+    </select>
+
+    <select id="findDongs" resultMap="regionOptionMap">
+        SELECT DISTINCT dong_name AS value, dong_name AS label
+        FROM dongcodes
+        WHERE sido_name = #{sidoName}
+          AND gugun_name = #{gugunName}
+          AND dong_name IS NOT NULL
+          AND dong_name &lt;&gt; ''
+        ORDER BY dong_name
+    </select>
+</mapper>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSAFY Home</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<section class="notice-popup" th:if="${popupNotices != null and !#lists.isEmpty(popupNotices)}" id="noticePopup">
+  <div class="notice-popup-box">
+    <div class="section-head compact">
+      <div>
+        <p class="eyebrow">Notice</p>
+        <h2>새 공지사항</h2>
+      </div>
+      <div class="notice-popup-actions">
+        <button type="button" class="button" onclick="hideNoticePopupForToday()">오늘 하루 보지 않기</button>
+        <button type="button" class="button danger" onclick="hideNoticePopup()">닫기</button>
+      </div>
+    </div>
+    <article th:each="notice : ${popupNotices}" class="notice-popup-item">
+      <a th:href="@{/notices/{id}(id=${notice.noticeId})}">
+        <strong th:text="${notice.title}">공지 제목</strong>
+        <span th:text="${notice.content}">공지 내용</span>
+      </a>
+    </article>
+  </div>
+</section>
+
+<main>
+  <section class="main-hero">
+    <div class="main-hero-inner">
+      <p class="eyebrow">Real Estate Data Platform</p>
+      <h1>부동산 시세를<br>지도에서 바로 확인하세요</h1>
+      <p class="muted">
+        SSAFY Home은 실거래가 DB를 기반으로 아파트 시세를 검색하고, 공공임대와 생활권 분석을 함께 확인하는 주거 정보 서비스입니다.
+      </p>
+
+      <form class="main-search" action="/prices" method="get">
+        <input type="hidden" name="mode" value="search">
+        <input name="gugunName" th:value="${condition.gugunName}" placeholder="구/군 예: 강남구">
+        <input name="keyword" th:value="${condition.keyword}" placeholder="아파트명">
+        <input name="dealYear" th:value="${condition.dealYear}" placeholder="거래연도">
+        <button type="submit">지도에서 보기</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="shell">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Market Price</p>
+        <h2 th:text="${showingSearchResult} ? '시세 검색 결과' : '최근 부동산 실거래'">최근 부동산 실거래</h2>
+        <p class="muted">상단 검색 또는 부동산 시세 메뉴를 누르면 PJT처럼 지도 화면으로 이동합니다.</p>
+      </div>
+      <a class="button primary" th:href="@{/prices}">부동산 시세 보기</a>
+    </div>
+
+    <p th:if="${#lists.isEmpty(trades)}" class="panel muted">
+      표시할 실거래 정보가 없습니다. 다른 조건으로 검색해 주세요.
+    </p>
+
+    <div th:if="${!#lists.isEmpty(trades)}" class="grid">
+      <article th:each="trade : ${trades}" class="card">
+        <span class="tag">APT SALE</span>
+        <h3 th:text="${trade.aptName}">아파트명</h3>
+        <p class="muted" th:text="${trade.address}">주소</p>
+        <p>
+          <strong th:text="|${trade.dealAmount}만원|">0만원</strong><br>
+          <span th:text="${trade.dealDate}">2026-01-01</span>
+          · 전용 <span th:text="${trade.exclusiveArea}">84.00</span>㎡
+          · <span th:text="${trade.floor}">10</span>층
+        </p>
+        <a class="button primary" th:href="@{/prices(mode='search',keyword=${trade.aptName},gugunName=${trade.gugunName})}">지도에서 보기</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="main-band">
+    <div class="shell split">
+      <article class="panel">
+        <p class="eyebrow">Public Rental</p>
+        <h2>공공임대는 서브 서비스로 확인</h2>
+        <p class="muted">LH 공공임대 공고를 목록과 상세 페이지에서 확인할 수 있습니다.</p>
+        <a class="button primary" href="/rentals">공공임대 보기</a>
+      </article>
+      <article class="panel">
+        <p class="eyebrow">Life Analysis</p>
+        <h2>생활권 분석</h2>
+        <p class="muted">상권과 ITS 교통 정보를 함께 보고 주거 후보지를 비교합니다.</p>
+        <a class="button" href="/analysis">생활권 분석</a>
+      </article>
+    </div>
+  </section>
+</main>
+<script>
+  const noticePopupStorageKey = "noticePopupHideUntil";
+
+  function hideNoticePopup() {
+    const popup = document.getElementById("noticePopup");
+    if (popup) {
+      popup.style.display = "none";
+    }
+  }
+
+  function hideNoticePopupForToday() {
+    const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem(noticePopupStorageKey, String(tomorrow));
+    hideNoticePopup();
+  }
+
+  (function hideStoredNoticePopup() {
+    const hideUntil = Number(localStorage.getItem(noticePopupStorageKey) || 0);
+    if (hideUntil > Date.now()) {
+      hideNoticePopup();
+      return;
+    }
+    localStorage.removeItem(noticePopupStorageKey);
+  })();
+</script>
+</body>
+</html>

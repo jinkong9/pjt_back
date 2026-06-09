@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.dao.MemberMapper">
+    <resultMap id="memberMap" type="com.happyhome.dto.MemberDto">
+        <id column="user_id" property="userId"/>
+        <result column="password" property="password"/>
+        <result column="name" property="name"/>
+        <result column="email" property="email"/>
+        <result column="phone" property="phone"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="memberMap">
+        SELECT user_id, password, name, email, phone
+        FROM members
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="findByUserIdAndEmail" resultMap="memberMap">
+        SELECT user_id, password, name, email, phone
+        FROM members
+        WHERE user_id = #{userId}
+          AND email = #{email}
+    </select>
+
+    <insert id="save">
+        INSERT INTO members (user_id, password, name, email, phone)
+        VALUES (#{userId}, #{password}, #{name}, #{email}, #{phone})
+    </insert>
+
+    <update id="update">
+        UPDATE members
+        SET password = #{password},
+            name = #{name},
+            email = #{email},
+            phone = #{phone}
+        WHERE user_id = #{userId}
+    </update>
+
+    <delete id="deleteByUserId">
+        DELETE FROM members WHERE user_id = #{userId}
+    </delete>
+</mapper>

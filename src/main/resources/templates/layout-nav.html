@@ -1,0 +1,27 @@
+<header class="site-header" th:fragment="nav" xmlns:th="http://www.thymeleaf.org">
+  <nav class="nav">
+    <a class="brand" th:href="@{/home}">
+      <span class="brand-mark">HOME</span>
+      <strong>SSAFY Home</strong>
+    </a>
+    <div class="nav-links">
+      <a th:href="@{/home}">홈</a>
+      <a th:href="@{/prices}">부동산 시세</a>
+      <a th:href="@{/rentals}">공공임대</a>
+      <a th:href="@{/notices}">공지사항</a>
+      <a th:href="@{/analysis}">생활권 분석</a>
+      <a th:if="${session.loginMember == null}" th:href="@{/login}">로그인</a>
+      <a th:if="${session.loginMember == null}" th:href="@{/register}">회원가입</a>
+      <a th:if="${session.loginMember != null}" th:href="@{/member}">마이페이지</a>
+      <a th:if="${session.loginMember != null}" th:href="@{/logout}">로그아웃</a>
+      <a class="nav-cta" th:href="@{/rentals}">공공임대 보기</a>
+      <a class="nav-cta" th:href="@{/analysis}">AI 추천</a>
+    </div>
+  </nav>
+  <aside class="quick-sidebar">
+    <a th:href="@{/notices}">공지사항</a>
+    <a th:href="@{/prices}">실거래 검색</a>
+    <a th:href="@{/member}">회원정보</a>
+    <a th:href="@{/analysis}">생활권 분석</a>
+  </aside>
+</header>

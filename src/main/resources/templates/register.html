@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>회원가입 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="auth-page compact">
+  <section class="auth-visual">
+    <div>
+      <a th:href="@{/home}" class="brand auth-brand light">
+        <span class="brand-mark">HOME</span>
+        <strong>SSAFY Home</strong>
+      </a>
+      <h1>JOIN<br>THE HOME DATA</h1>
+      <p class="hero-copy">회원가입 후 내 정보와 관심 주거 서비스를 관리할 수 있습니다.</p>
+    </div>
+  </section>
+  <section class="auth-panel">
+    <div class="auth-box">
+      <h1>회원가입</h1>
+      <p th:if="${message}" th:text="${message}" class="alert error"></p>
+      <form method="post" th:action="@{/register}" class="auth-form">
+        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <label>
+          <span>이름</span>
+          <input name="name" th:value="${member.name}" required>
+        </label>
+        <label>
+          <span>아이디</span>
+          <input name="userId" th:value="${member.userId}" autocomplete="username" required>
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input name="password" type="password" autocomplete="new-password" required>
+        </label>
+        <label>
+          <span>이메일</span>
+          <input name="email" type="email" th:value="${member.email}" required>
+        </label>
+        <label>
+          <span>전화번호</span>
+          <input name="phone" th:value="${member.phone}" required>
+        </label>
+        <button type="submit">회원가입</button>
+      </form>
+      <p class="auth-note">이미 계정이 있다면 <a th:href="@{/login}">로그인</a></p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

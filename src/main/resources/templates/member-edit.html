@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>회원 수정 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="panel member-panel narrow">
+    <p class="eyebrow">Account Edit</p>
+    <h1>회원 수정</h1>
+    <form th:if="${session.loginMember != null}" method="post" th:action="@{/member/edit}" class="auth-form">
+      <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <label>
+        <span>아이디</span>
+        <input th:value="${session.loginMember.userId}" readonly>
+      </label>
+      <label>
+        <span>새 비밀번호</span>
+        <input name="password" type="password" autocomplete="new-password" placeholder="변경할 때만 입력">
+      </label>
+      <label>
+        <span>이름</span>
+        <input name="name" th:value="${session.loginMember.name}" required>
+      </label>
+      <label>
+        <span>이메일</span>
+        <input name="email" type="email" th:value="${session.loginMember.email}" required>
+      </label>
+      <label>
+        <span>전화번호</span>
+        <input name="phone" th:value="${session.loginMember.phone}" required>
+      </label>
+      <button type="submit">저장</button>
+    </form>
+  </section>
+</main>
+</body>
+</html>

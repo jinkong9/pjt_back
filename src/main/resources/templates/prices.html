@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>실거래 지도 | SSAFY Home</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <script th:if="${kakaoKey != null and !#strings.isEmpty(kakaoKey)}"
+          th:src="@{'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + ${kakaoKey} + '&libraries=services&autoload=false'}"></script>
+</head>
+<body class="h-screen overflow-hidden bg-[#f4f0ea] text-[#171717]">
+  <header class="absolute left-0 right-0 top-0 z-30 border-b border-white/15 bg-black/35 text-white backdrop-blur">
+    <div class="flex h-20 items-center justify-between px-6 lg:px-8">
+      <a th:href="@{/home}" class="flex items-center gap-3">
+        <span class="grid h-8 w-12 place-items-center border border-white/70 text-[10px] font-black tracking-[0.18em]">HOME</span>
+        <strong class="text-sm font-black uppercase tracking-[0.22em]">SSAFY Home</strong>
+      </a>
+      <nav class="hidden items-center gap-7 text-sm font-black md:flex">
+        <a th:href="@{/home}" class="text-white hover:text-white/70">홈</a>
+        <a th:href="@{/prices}" class="text-white hover:text-white/70">부동산 시세</a>
+        <a th:href="@{/rentals}" class="text-white hover:text-white/70">공공임대</a>
+        <a th:href="@{/analysis}" class="text-white hover:text-white/70">생활권 분석</a>
+        <a th:if="${session.loginMember == null}" th:href="@{/login}" class="text-white hover:text-white/70">로그인</a>
+        <a th:if="${session.loginMember == null}" th:href="@{/register}" class="text-white hover:text-white/70">회원가입</a>
+        <a th:if="${session.loginMember != null}" th:href="@{/member}" class="text-white hover:text-white/70">마이페이지</a>
+        <a th:if="${session.loginMember != null}" th:href="@{/logout}" class="text-white hover:text-white/70">로그아웃</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="relative h-screen">
+    <section id="map" class="absolute inset-0 bg-neutral-300"></section>
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-black/20 to-transparent"></div>
+
+    <aside class="absolute bottom-0 left-0 top-20 z-20 flex w-full max-w-[520px] flex-col bg-white/95 shadow-2xl backdrop-blur md:m-6 md:top-24 md:max-h-[calc(100vh-7.5rem)] md:border md:border-white/70">
+      <section class="border-b border-neutral-200 p-5">
+        <p class="text-xs font-black uppercase tracking-[0.28em] text-[#b4212a]">Apartment Search</p>
+        <h1 class="mt-2 text-3xl font-black leading-tight">실거래 지도</h1>
+        <form id="topSearchForm" th:action="@{/prices}" method="get" class="mt-5 space-y-3">
+          <input id="modeInput" type="hidden" name="mode" th:value="${condition.mode}" />
+          <input name="keyword" th:value="${condition.keyword}" class="h-12 w-full border-neutral-300 text-sm font-bold" placeholder="아파트명 또는 지역명을 입력하세요" />
+          <div class="grid grid-cols-2 gap-2">
+            <select id="sidoSelect" name="sidoName" class="h-11 border-neutral-300 text-sm font-bold">
+              <option value="">시도 전체</option>
+              <option th:each="sido : ${sidos}" th:value="${sido.value}" th:text="${sido.label}"
+                      th:selected="${sido.value == condition.sidoName}">서울특별시</option>
+            </select>
+            <select id="gugunSelect" name="gugunName" class="h-11 border-neutral-300 text-sm font-bold">
+              <option value="">구군 전체</option>
+              <option th:each="gugun : ${guguns}" th:value="${gugun.value}" th:text="${gugun.label}"
+                      th:selected="${gugun.value == condition.gugunName}">강남구</option>
+            </select>
+            <select id="dongSelect" name="dongName" class="h-11 border-neutral-300 text-sm font-bold">
+              <option value="">동 전체</option>
+              <option th:each="dong : ${dongs}" th:value="${dong.value}" th:text="${dong.label}"
+                      th:selected="${dong.value == condition.dongName}">역삼동</option>
+            </select>
+            <input name="dealYear" th:value="${condition.dealYear}" type="number" class="h-11 border-neutral-300 text-sm font-bold" placeholder="거래년도" />
+          </div>
+          <div class="grid grid-cols-[1fr_auto] gap-2">
+            <input name="limit" th:value="${condition.limit}" type="number" min="1" max="500" class="h-11 border-neutral-300 text-sm font-bold" placeholder="조회 개수" />
+            <button id="topSearchButton" class="flex h-11 items-center gap-2 bg-[#b4212a] px-5 text-sm font-black text-white">
+              검색
+              <span class="material-symbols-outlined text-base">search</span>
+            </button>
+          </div>
+        </form>
+        <p id="status" class="mt-4 text-xs font-bold text-neutral-500"
+           th:text="${condition.hasSearchCondition()} ? |총 ${#lists.size(trades)}건의 거래를 표시합니다.| : '지역이나 아파트명을 검색하면 DB 실거래 정보가 표시됩니다.'"></p>
+      </section>
+
+      <section id="tradeList" class="flex-1 overflow-y-auto">
+        <p th:if="${#lists.isEmpty(trades) and !condition.hasSearchCondition()}" class="p-6 text-sm font-bold text-neutral-500">검색 조건을 입력해 주세요.</p>
+        <p th:if="${#lists.isEmpty(trades) and condition.hasSearchCondition()}" class="p-6 text-sm font-bold text-neutral-500">조건과 일치하는 거래 정보가 없습니다.</p>
+        <article th:each="trade : ${trades}" class="trade-item relative cursor-pointer border-b border-neutral-200 p-5 transition hover:bg-[#f7f4ef]"
+          th:data-name="${trade.aptName}"
+          th:data-address="${trade.address}"
+          th:data-type="'APT SALE'"
+          th:data-price="${trade.dealAmount}"
+          th:data-area="|${trade.exclusiveArea}㎡|"
+          th:data-date="${trade.dealDate}"
+          th:data-floor="${trade.floor}"
+          th:data-lat="${trade.latitude}"
+          th:data-lng="${trade.longitude}">
+          <a class="absolute right-5 top-5 border border-neutral-300 bg-white px-3 py-2 text-xs font-black text-[#171717] hover:text-[#b4212a]"
+             onclick="event.stopPropagation()"
+             th:href="@{/analysis(label=${trade.address},longitude=${trade.longitude != null and !#strings.isEmpty(trade.longitude) ? trade.longitude : 126.9413},latitude=${trade.latitude != null and !#strings.isEmpty(trade.latitude) ? trade.latitude : 37.4826},radius=1000)}">
+            생활권 분석
+          </a>
+          <div class="pr-28 text-xs font-black uppercase tracking-[0.18em] text-[#b4212a]">APT SALE</div>
+          <h2 class="mt-2 text-xl font-black leading-tight" th:text="${trade.aptName}">아파트명</h2>
+          <div class="mt-4 text-sm">
+            <strong class="text-lg text-[#b4212a]" th:text="|${trade.dealAmount}만원|">0만원</strong>
+            <p class="mt-2 font-bold text-neutral-700">
+              <span th:text="${trade.exclusiveArea}">0</span>㎡
+              <span th:text="${trade.floor}">0</span>층
+              <span th:text="${trade.dealDate}">2026-01-01</span>
+            </p>
+            <p class="mt-2 text-xs leading-5 text-neutral-500" th:text="${trade.address}">주소</p>
+            <form method="post" th:action="@{/favorites/{no}/toggle(no=${trade.no})}" onclick="event.stopPropagation()" class="mt-4">
+              <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <input type="hidden" name="redirect" value="/prices">
+              <button type="submit"
+                      class="w-full border border-neutral-300 bg-white px-3 py-2 text-xs font-black text-[#b4212a]"
+                      th:text="${favoriteDealNos.contains(trade.no)} ? '관심매물 해제' : '관심매물 등록'">관심매물 등록</button>
+            </form>
+          </div>
+        </article>
+      </section>
+    </aside>
+
+    <aside class="map-side-nav">
+      <a th:href="@{/rentals}">공지사항</a>
+      <a th:href="@{/prices}">실거래 검색</a>
+      <a th:href="@{/member}">회원정보</a>
+      <a th:href="@{/analysis}">FAQ</a>
+    </aside>
+
+    <div id="mapError" class="absolute right-6 top-28 z-30 hidden max-w-sm border border-red-200 bg-white p-5 text-sm font-bold text-red-700 shadow-xl">
+      Kakao 지도를 불러오지 못했습니다. Kakao JavaScript 키와 Web 플랫폼 등록 정보를 확인하세요.
+    </div>
+    <div id="detailPanel" class="absolute right-6 top-28 z-30 hidden w-96 border border-neutral-200 bg-white/95 p-6 shadow-2xl backdrop-blur">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p id="detailType" class="text-xs font-black uppercase tracking-[0.18em] text-[#b4212a]"></p>
+          <h2 id="detailName" class="mt-2 text-2xl font-black"></h2>
+        </div>
+        <button id="detailClose" class="grid h-8 w-8 place-items-center border border-neutral-300 text-xs font-black">X</button>
+      </div>
+      <dl class="mt-6 space-y-4 text-sm">
+        <div><dt class="text-xs font-black text-neutral-500">주소</dt><dd id="detailAddress" class="mt-1 font-bold text-neutral-900"></dd></div>
+        <div><dt class="text-xs font-black text-neutral-500">가격</dt><dd id="detailPrice" class="mt-1 font-bold text-neutral-900"></dd></div>
+        <div><dt class="text-xs font-black text-neutral-500">면적/층</dt><dd id="detailArea" class="mt-1 font-bold text-neutral-900"></dd></div>
+      </dl>
+    </div>
+  </main>
+
+  <script>
+    let map;
+    let markers = [];
+    let markerBounds;
+
+    function showDetail(item) {
+      document.getElementById("detailType").textContent = item.dataset.type || "APT SALE";
+      document.getElementById("detailName").textContent = item.dataset.name || "-";
+      document.getElementById("detailAddress").textContent = item.dataset.address || "-";
+      document.getElementById("detailPrice").textContent = (item.dataset.price || "-") + "만원";
+      document.getElementById("detailArea").textContent =
+        (item.dataset.area || "-") + " · " + (item.dataset.floor || "-") + "층 · " + (item.dataset.date || "-");
+      document.getElementById("detailPanel").classList.remove("hidden");
+    }
+
+    function clearMarkers() {
+      markers.forEach((marker) => marker.setMap(null));
+      markers = [];
+    }
+
+    function placeMarker(item) {
+      const lat = Number(item.dataset.lat);
+      const lng = Number(item.dataset.lng);
+      if (!lat || !lng) return;
+      const position = new kakao.maps.LatLng(lat, lng);
+      const marker = new kakao.maps.Marker({ map, position, title: item.dataset.name });
+      kakao.maps.event.addListener(marker, "click", () => showDetail(item));
+      markers.push(marker);
+      markerBounds.extend(position);
+    }
+
+    function initMap() {
+      map = new kakao.maps.Map(document.getElementById("map"), {
+        center: new kakao.maps.LatLng(37.5665, 126.9780),
+        level: 7,
+      });
+      clearMarkers();
+      markerBounds = new kakao.maps.LatLngBounds();
+      const items = document.querySelectorAll(".trade-item");
+      items.forEach((item) => {
+        placeMarker(item);
+        item.addEventListener("click", () => {
+          showDetail(item);
+          const lat = Number(item.dataset.lat);
+          const lng = Number(item.dataset.lng);
+          if (lat && lng) map.panTo(new kakao.maps.LatLng(lat, lng));
+        });
+      });
+      if (markers.length > 0) {
+        map.setBounds(markerBounds);
+      }
+    }
+
+    function loadMap() {
+      if (!window.kakao || !kakao.maps || !kakao.maps.load) {
+        document.getElementById("mapError").classList.remove("hidden");
+        return;
+      }
+      kakao.maps.load(initMap);
+    }
+
+    document.getElementById("detailClose").addEventListener("click", () => {
+      document.getElementById("detailPanel").classList.add("hidden");
+    });
+    document.getElementById("topSearchButton").addEventListener("click", () => {
+      document.getElementById("modeInput").value = "search";
+    });
+    document.getElementById("sidoSelect").addEventListener("change", () => {
+      document.getElementById("gugunSelect").value = "";
+      document.getElementById("dongSelect").value = "";
+      document.getElementById("modeInput").value = "region";
+      document.getElementById("topSearchForm").submit();
+    });
+    document.getElementById("gugunSelect").addEventListener("change", () => {
+      document.getElementById("dongSelect").value = "";
+      document.getElementById("modeInput").value = "region";
+      document.getElementById("topSearchForm").submit();
+    });
+    loadMap();
+  </script>
+</body>
+</html>

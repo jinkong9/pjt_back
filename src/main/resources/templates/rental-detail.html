@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>임대 공고 상세 | SSAFY Home</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{layout-nav :: nav}"></div>
+
+<main class="shell">
+  <section class="hero" style="gap:14px">
+    <p class="eyebrow">Rental Detail</p>
+    <h1 th:text="${detail.notice().title()}"
+        style="font-size:clamp(32px,4.2vw,58px);line-height:1.12;max-width:1080px">공고명</h1>
+    <p class="muted" th:text="${detail.notice().regionName()} + ' · ' + ${detail.notice().status()}">지역 · 상태</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <a class="button primary" th:if="${detail.notice().detailUrl() != null and !#strings.isEmpty(detail.notice().detailUrl())}"
+         th:href="${detail.notice().detailUrl()}" target="_blank" rel="noreferrer">LH 원문 바로가기</a>
+      <a class="button" href="/rentals">목록으로</a>
+    </div>
+  </section>
+
+  <section class="metric-grid" style="margin-bottom:16px">
+    <article class="panel metric">
+      <span class="eyebrow">Status</span>
+      <strong style="font-size:28px" th:text="${detail.notice().status()}">공고중</strong>
+      <p class="muted" th:text="${detail.notice().noticeType()}">공고 유형</p>
+    </article>
+    <article class="panel metric">
+      <span class="eyebrow">Notice</span>
+      <strong style="font-size:28px" th:text="${detail.notice().noticeDate()}">2026.05.10</strong>
+      <p class="muted">공고일</p>
+    </article>
+    <article class="panel metric">
+      <span class="eyebrow">Close</span>
+      <strong style="font-size:28px" th:text="${detail.notice().closeDate()}">2026.05.28</strong>
+      <p class="muted">마감일</p>
+    </article>
+    <article class="panel metric">
+      <span class="eyebrow">Contact</span>
+      <strong style="font-size:28px" th:text="${detail.detail().contact()}">1600-1004</strong>
+      <p class="muted">문의처</p>
+    </article>
+  </section>
+
+  <section class="split">
+    <article class="panel">
+      <h2>신청 정보</h2>
+      <p class="muted" th:text="${detail.detail().contractAddress()}">주소</p>
+      <p class="muted" th:text="${detail.detail().contractDetailAddress()}">상세 주소</p>
+      <p>
+        <strong th:text="${detail.detail().applyStartDate()}">시작일</strong>
+        ~
+        <strong th:text="${detail.detail().applyEndDate()}">종료일</strong>
+      </p>
+      <p class="muted">신청 기간과 공급 조건은 LH 원문에서 반드시 최종 확인하세요.</p>
+    </article>
+    <article class="panel">
+      <h2>공급 정보</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <tr><th>용도</th><th>주소</th><th>면적</th><th>예상 금액</th><th>세대수</th></tr>
+          <tr th:each="supply : ${detail.supplies()}">
+            <td th:text="${supply.usage()}">용도</td>
+            <td th:text="${supply.address()}">주소</td>
+            <td th:text="${supply.area()}">면적</td>
+            <td th:text="${supply.expectedAmount()}">금액</td>
+            <td th:text="${supply.householdCount()}">세대수</td>
+          </tr>
+        </table>
+      </div>
+    </article>
+  </section>
+</main>
+</body>
+</html>
