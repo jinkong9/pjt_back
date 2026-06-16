@@ -4,6 +4,8 @@ import com.happyhome.member.dto.MemberAuthRequest;
 import com.happyhome.member.dto.MemberDto;
 import com.happyhome.member.dto.MemberResponse;
 import com.happyhome.member.dto.MemberUpdateRequest;
+import com.happyhome.member.dto.FinancialProfile;
+import com.happyhome.member.service.FinancialProfileService;
 import com.happyhome.member.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,9 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberRestController {
 
     private final MemberService memberService;
+    private final FinancialProfileService financialProfileService;
 
-    public MemberRestController(MemberService memberService) {
+    public MemberRestController(MemberService memberService, FinancialProfileService financialProfileService) {
         this.memberService = memberService;
+        this.financialProfileService = financialProfileService;
     }
 
     @Operation(summary = "회원가입", description = "회원 정보를 등록하고 비밀번호는 BCrypt로 저장합니다.")
@@ -120,5 +124,28 @@ public class MemberRestController {
                     return ResponseEntity.ok(MemberResponse.from(member));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/me/financial-profile")
+    public ResponseEntity<FinancialProfile> financialProfile(HttpSession session) {
+        MemberDto loginMember = (MemberDto) session.getAttribute("loginMember");
+        if (loginMember == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return financialProfileService.findByUserId(loginMember.getUserId())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PutMapping("/me/financial-profile")
+    public ResponseEntity<FinancialProfile> updateFinancialProfile(
+            @RequestBody FinancialProfile request,
+            HttpSession session
+    ) {
+        MemberDto loginMember = (MemberDto) session.getAttribute("loginMember");
+        if (loginMember == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(financialProfileService.save(loginMember.getUserId(), request));
     }
 }

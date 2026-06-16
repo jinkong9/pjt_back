@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.happyhome.member.dao.FinancialProfileMapper">
+    <select id="findByUserId" resultType="com.happyhome.member.dto.FinancialProfile">
+        SELECT user_id,
+               available_assets,
+               annual_income,
+               monthly_savings,
+               existing_loan_balance,
+               existing_monthly_debt_payment
+        FROM member_financial_profiles
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO member_financial_profiles (
+            user_id,
+            available_assets,
+            annual_income,
+            monthly_savings,
+            existing_loan_balance,
+            existing_monthly_debt_payment
+        ) VALUES (
+            #{userId},
+            #{availableAssets},
+            #{annualIncome},
+            #{monthlySavings},
+            #{existingLoanBalance},
+            #{existingMonthlyDebtPayment}
+        )
+        ON DUPLICATE KEY UPDATE
+            available_assets = VALUES(available_assets),
+            annual_income = VALUES(annual_income),
+            monthly_savings = VALUES(monthly_savings),
+            existing_loan_balance = VALUES(existing_loan_balance),
+            existing_monthly_debt_payment = VALUES(existing_monthly_debt_payment),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+</mapper>
