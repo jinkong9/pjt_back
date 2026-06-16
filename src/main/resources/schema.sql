@@ -6,6 +6,20 @@ CREATE TABLE IF NOT EXISTS members (
     phone VARCHAR(255) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS member_financial_profiles (
+    user_id VARCHAR(50) PRIMARY KEY,
+    available_assets DECIMAL(19, 0) NOT NULL DEFAULT 0,
+    annual_income DECIMAL(19, 0) NOT NULL DEFAULT 0,
+    monthly_savings DECIMAL(19, 0) NOT NULL DEFAULT 0,
+    existing_loan_balance DECIMAL(19, 0) NOT NULL DEFAULT 0,
+    existing_monthly_debt_payment DECIMAL(19, 0) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_financial_profile_member
+        FOREIGN KEY (user_id) REFERENCES members(user_id)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS dongcodes (
     dong_code VARCHAR(10) PRIMARY KEY,
     sido_name VARCHAR(30),

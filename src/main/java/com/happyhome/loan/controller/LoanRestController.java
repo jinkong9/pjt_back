@@ -4,10 +4,17 @@ import com.happyhome.loan.dto.LoanCalculationRequest;
 import com.happyhome.loan.dto.LoanCalculationResult;
 import com.happyhome.loan.dto.LoanProduct;
 import com.happyhome.loan.dto.LoanType;
+import com.happyhome.loan.dto.PropertyLoanAnalysisRequest;
+import com.happyhome.loan.dto.PropertyLoanAnalysisResult;
+import com.happyhome.house.service.HouseDealService;
+import com.happyhome.member.dto.MemberDto;
+import com.happyhome.member.service.FinancialProfileService;
 import com.happyhome.loan.service.LoanCalculator;
 import com.happyhome.loan.service.LoanProductService;
+import com.happyhome.loan.service.PropertyLoanAnalysisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/api/loans")
@@ -24,10 +33,22 @@ public class LoanRestController {
 
     private final LoanProductService productService;
     private final LoanCalculator calculator;
+    private final PropertyLoanAnalysisService propertyLoanAnalysisService;
+    private final HouseDealService houseDealService;
+    private final FinancialProfileService financialProfileService;
 
-    public LoanRestController(LoanProductService productService, LoanCalculator calculator) {
+    public LoanRestController(
+            LoanProductService productService,
+            LoanCalculator calculator,
+            PropertyLoanAnalysisService propertyLoanAnalysisService,
+            HouseDealService houseDealService,
+            FinancialProfileService financialProfileService
+    ) {
         this.productService = productService;
         this.calculator = calculator;
+        this.propertyLoanAnalysisService = propertyLoanAnalysisService;
+        this.houseDealService = houseDealService;
+        this.financialProfileService = financialProfileService;
     }
 
     @Operation(summary = "대출 상품 조회", description = "금감원 금융상품 한눈에 API의 상품 기본정보와 금리 옵션정보를 묶어 조회합니다.")
@@ -43,5 +64,21 @@ public class LoanRestController {
     @PostMapping("/calculate")
     public LoanCalculationResult calculate(@Valid @RequestBody LoanCalculationRequest request) {
         return calculator.calculate(request);
+    }
+
+    @PostMapping("/property-analysis")
+    public ResponseEntity<PropertyLoanAnalysisResult> propertyAnalysis(
+            @Valid @RequestBody PropertyLoanAnalysisRequest request,
+            HttpSession session
+    ) {
+        MemberDto member = (MemberDto) session.getAttribute("loginMember");
+        if (member == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return financialProfileService.findByUserId(member.getUserId())
+                .flatMap(profile -> houseDealService.findByNo(request.dealNo())
+                        .map(deal -> propertyLoanAnalysisService.analyze(deal, profile, request)))
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
