@@ -46,10 +46,15 @@ class RentalNoticeMapperTest {
         assertThat(supplies).containsExactly(new RentalSupply(
                 "Busan usage",
                 "Busan supply address",
+                "",
                 "46B",
                 "20000000",
+                "20000000",
                 "B",
-                "20"
+                "20",
+                "",
+                "Busan supply address",
+                ""
         ));
     }
 

@@ -140,19 +140,23 @@ public class LhOpenApiClient {
     }
 
     private RentalSupply supply(JsonNode node) {
-        String address = text(node, "LGDN_DTL_ADR", text(node, "ADDR", ""));
+        String houseType = text(node, "HTY_NNA", text(node, "HTYPE", text(node, "HOUSE_TY_NM", "")));
+        String address = text(node, "LGDN_DTL_ADR", text(node, "ADDR", text(node, "SBD_LGO_NM", "")));
         String lotNumber = text(node, "LNO", "");
-        String amountRaw = text(node, "SPL_XPC_AMT", text(node, "RFE", ""));
+        String deposit = text(node, "LS_GMY", "");
+        String rent = text(node, "RFE", "");
+        String amountFallback = deposit.isBlank() ? rent : "보증금 " + deposit + (rent.isBlank() ? "" : " / 월 " + rent);
+        String amountRaw = text(node, "SPL_XPC_AMT", amountFallback);
         String mapAddress = joinNonBlank(" ", address, lotNumber);
         return new RentalSupply(
-                text(node, "LND_US_DS_CD_NM", text(node, "SPL_INF_TP_NM", "공급유형")),
+                text(node, "LND_US_DS_CD_NM", text(node, "SPL_INF_TP_NM", houseType)),
                 address,
                 lotNumber,
                 text(node, "AR", text(node, "DDO_AR", "")),
                 formatWon(amountRaw),
                 amountRaw,
-                text(node, "HTYPE", text(node, "HOUSE_TY_NM", "")),
-                text(node, "HSH_CNT", text(node, "SPL_HSH_CNT", "")),
+                houseType,
+                text(node, "NOW_HSH_CNT", text(node, "HSH_CNT", text(node, "SPL_HSH_CNT", ""))),
                 text(node, "SBSC_ACP_STTS_NM", "입찰신청전"),
                 mapAddress,
                 naverMapUrl(mapAddress)
@@ -161,8 +165,8 @@ public class LhOpenApiClient {
 
     private RentalDetail detail(JsonNode node) {
         return new RentalDetail(
-                text(node, "CTRT_PLC_ADR", ""),
-                text(node, "CTRT_PLC_DTL_ADR", ""),
+                text(node, "CTRT_PLC_ADR", text(node, "LGDN_ADR", "")),
+                text(node, "CTRT_PLC_DTL_ADR", text(node, "LGDN_DTL_ADR", "")),
                 text(node, "SBSC_ACP_ST_DT", ""),
                 text(node, "SBSC_ACP_CLSG_DT", ""),
                 text(node, "SIL_OFC_TLNO", "1600-1004")
