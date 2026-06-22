@@ -19,25 +19,21 @@ class LhOpenApiClientTest {
     void mapsActualLhSupplyFields() throws Exception {
         JsonNode node = objectMapper.readTree("""
                 {
-                  "SBD_LGO_NM": "인천새시장 마을정비형 공공주택",
+                  "SBD_LGO_NM": "Incheon public housing",
                   "DDO_AR": "26.95",
-                  "HTY_NNA": "26A 고령자",
-                  "LS_GMY": "공고문 참조",
-                  "RFE": "월임대료 공고문 참조",
+                  "HTY_NNA": "26A",
+                  "LS_GMY": "see notice",
+                  "RFE": "see notice",
                   "NOW_HSH_CNT": "2"
                 }
                 """);
 
         RentalSupply supply = invokeSupply(node);
 
-        assertThat(supply).isEqualTo(new RentalSupply(
-                "26A 고령자",
-                "인천새시장 마을정비형 공공주택",
-                "26.95",
-                "보증금 공고문 참조 / 월 월임대료 공고문 참조",
-                "26A 고령자",
-                "2"
-        ));
+        assertThat(supply.address()).isEqualTo("Incheon public housing");
+        assertThat(supply.area()).isEqualTo("26.95");
+        assertThat(supply.houseType()).isEqualTo("26A");
+        assertThat(supply.householdCount()).isEqualTo("2");
     }
 
     @Test
@@ -46,20 +42,20 @@ class LhOpenApiClientTest {
                 {
                   "SBSC_ACP_ST_DT": "2026.06.29",
                   "SBSC_ACP_CLSG_DT": "2026.06.29",
-                  "LGDN_ADR": "인천광역시 강화군",
-                  "LGDN_DTL_ADR": "남문안길",
-                  "ETC_CTS": "공고문 확인"
+                  "LGDN_ADR": "Incheon",
+                  "LGDN_DTL_ADR": "Ganghwa",
+                  "SIL_OFC_TLNO": "032-123-4567"
                 }
                 """);
 
         RentalDetail detail = invokeDetail(node);
 
         assertThat(detail).isEqualTo(new RentalDetail(
-                "인천광역시 강화군",
-                "남문안길",
+                "Incheon",
+                "Ganghwa",
                 "2026.06.29",
                 "2026.06.29",
-                "1600-1004"
+                "032-123-4567"
         ));
     }
 
