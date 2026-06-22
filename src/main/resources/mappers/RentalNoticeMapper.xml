@@ -39,10 +39,15 @@
 		<constructor>
 			<arg column="usage" javaType="string" />
 			<arg column="address" javaType="string" />
+			<arg column="lot_number" javaType="string" />
 			<arg column="area" javaType="string" />
 			<arg column="expected_amount" javaType="string" />
+			<arg column="expected_amount_raw" javaType="string" />
 			<arg column="house_type" javaType="string" />
 			<arg column="household_count" javaType="string" />
+			<arg column="internet_apply_status" javaType="string" />
+			<arg column="map_address" javaType="string" />
+			<arg column="map_url" javaType="string" />
 		</constructor>
 	</resultMap>
 
@@ -108,10 +113,15 @@
 		SELECT
 			`usage`,
 			address,
+			'' AS lot_number,
 			area,
 			expected_amount,
+			expected_amount AS expected_amount_raw,
 			house_type,
-			household_count
+			household_count,
+			'' AS internet_apply_status,
+			address AS map_address,
+			'' AS map_url
 		FROM lh_notice_supplies
 		WHERE notice_id = #{noticeId}
 		ORDER BY supply_id ASC
