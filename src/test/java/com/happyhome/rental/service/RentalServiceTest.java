@@ -5,7 +5,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.happyhome.openapi.KakaoLocalApiClient;
 import com.happyhome.openapi.LhOpenApiClient;
+import com.happyhome.openapi.dto.GeoCoordinate;
 import com.happyhome.rental.dao.RentalNoticeMapper;
 import com.happyhome.rental.dto.RentalDetail;
 import com.happyhome.rental.dto.RentalNotice;
@@ -27,6 +29,9 @@ class RentalServiceTest {
 
     @Mock
     private RentalNoticeMapper mapper;
+
+    @Mock
+    private KakaoLocalApiClient kakaoLocalApiClient;
 
     @Test
     void returnsCachedRentalNoticesBeforeCallingLhApi() {
@@ -66,6 +71,57 @@ class RentalServiceTest {
 
         assertThat(result.detail()).isEqualTo(detail);
         assertThat(result.supplies()).containsExactly(supply);
+    }
+
+    @Test
+    void attachesCoordinatesToLhSuppliesWhenGeocodingSucceeds() {
+        RentalNotice notice = new RentalNotice(
+                "LH-001", "Rental notice", "Seoul", "rental", "public", "open",
+                "2026.06.18", "2026.06.29", "https://apply.lh.or.kr",
+                "03", "06", "10", "063", "api"
+        );
+        RentalSupply supply = new RentalSupply(
+                "youth", "서울특별시 강남구 개포로 310", "168",
+                "26", "2,000,000", "2000000", "26A", "20",
+                "available", "서울특별시 강남구 개포로 310 168", "https://map.example"
+        );
+        when(mapper.findById("LH-001")).thenReturn(Optional.of(notice));
+        when(mapper.findDetailByNoticeId("LH-001")).thenReturn(Optional.of(new RentalDetail("", "", "", "", "")));
+        when(mapper.findSuppliesByNoticeId("LH-001")).thenReturn(List.of(supply));
+        when(kakaoLocalApiClient.geocode("서울특별시 강남구 개포로 310 168"))
+                .thenReturn(Optional.of(new GeoCoordinate(37.4919, 127.0776)));
+
+        RentalNoticeDetail result = new RentalService(lhClient, mapper, null, kakaoLocalApiClient).detail("LH-001");
+
+        assertThat(result.supplies()).singleElement().satisfies(item -> {
+            assertThat(item.latitude()).isEqualTo(37.4919);
+            assertThat(item.longitude()).isEqualTo(127.0776);
+        });
+    }
+
+    @Test
+    void refreshesImpreciseCachedSuppliesBeforeMapping() {
+        RentalNotice notice = new RentalNotice(
+                "LH-001", "Rental notice", "Seoul", "rental", "public", "open",
+                "2026.06.18", "2026.06.29", "https://apply.lh.or.kr",
+                "03", "06", "10", "063", "api"
+        );
+        RentalSupply cachedDongOnlySupply = new RentalSupply(
+                "youth", "인천광역시 중구 운남동", "", "26", "2,000,000", "2000000",
+                "26A", "20", "", "인천광역시 중구 운남동", ""
+        );
+        RentalSupply fetchedPreciseSupply = new RentalSupply(
+                "youth", "인천광역시 중구 운남동", "168", "26", "2,000,000", "2000000",
+                "26A", "20", "available", "인천광역시 중구 운남동 168", "https://map.example"
+        );
+        when(mapper.findById("LH-001")).thenReturn(Optional.of(notice));
+        when(mapper.findDetailByNoticeId("LH-001")).thenReturn(Optional.of(new RentalDetail("", "", "", "", "")));
+        when(mapper.findSuppliesByNoticeId("LH-001")).thenReturn(List.of(cachedDongOnlySupply));
+        when(lhClient.supplies(notice)).thenReturn(List.of(fetchedPreciseSupply));
+
+        RentalNoticeDetail result = new RentalService(lhClient, mapper).detail("LH-001");
+
+        assertThat(result.supplies()).containsExactly(fetchedPreciseSupply);
     }
 
     @Test
