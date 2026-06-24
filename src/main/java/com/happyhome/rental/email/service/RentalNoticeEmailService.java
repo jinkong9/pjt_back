@@ -6,6 +6,8 @@ import com.happyhome.rental.dto.RentalNoticeDetail;
 import com.happyhome.rental.email.dao.RentalNoticeEmailLogDao;
 import com.happyhome.rental.email.dto.RentalNoticeEmailEventType;
 import com.happyhome.rental.favorite.service.FavoriteRentalNoticeService;
+import com.happyhome.rental.recommendation.dto.RentalRecommendation;
+import com.happyhome.rental.recommendation.service.RentalRecommendationService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.time.Clock;
@@ -26,6 +28,7 @@ import org.springframework.web.util.HtmlUtils;
 public class RentalNoticeEmailService {
 
     private final FavoriteRentalNoticeService favoriteService;
+    private final RentalRecommendationService recommendationService;
     private final MemberService memberService;
     private final RentalNoticeEmailLogDao emailLogDao;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
@@ -36,6 +39,7 @@ public class RentalNoticeEmailService {
     @Autowired
     public RentalNoticeEmailService(
             FavoriteRentalNoticeService favoriteService,
+            RentalRecommendationService recommendationService,
             MemberService memberService,
             RentalNoticeEmailLogDao emailLogDao,
             ObjectProvider<JavaMailSender> mailSenderProvider,
@@ -44,6 +48,7 @@ public class RentalNoticeEmailService {
     ) {
         this(
                 favoriteService,
+                recommendationService,
                 memberService,
                 emailLogDao,
                 mailSenderProvider,
@@ -55,27 +60,30 @@ public class RentalNoticeEmailService {
 
     public RentalNoticeEmailService(
             FavoriteRentalNoticeService favoriteService,
+            RentalRecommendationService recommendationService,
             MemberService memberService,
             RentalNoticeEmailLogDao emailLogDao,
             ObjectProvider<JavaMailSender> mailSenderProvider,
             Clock clock
     ) {
-        this(favoriteService, memberService, emailLogDao, mailSenderProvider, clock, 3, "http://localhost:8080");
+        this(favoriteService, recommendationService, memberService, emailLogDao, mailSenderProvider, clock, 3, "http://localhost:8080");
     }
 
     public RentalNoticeEmailService(
             FavoriteRentalNoticeService favoriteService,
+            RentalRecommendationService recommendationService,
             MemberService memberService,
             RentalNoticeEmailLogDao emailLogDao,
             ObjectProvider<JavaMailSender> mailSenderProvider,
             Clock clock,
             int closingSoonDays
     ) {
-        this(favoriteService, memberService, emailLogDao, mailSenderProvider, clock, closingSoonDays, "http://localhost:8080");
+        this(favoriteService, recommendationService, memberService, emailLogDao, mailSenderProvider, clock, closingSoonDays, "http://localhost:8080");
     }
 
     public RentalNoticeEmailService(
             FavoriteRentalNoticeService favoriteService,
+            RentalRecommendationService recommendationService,
             MemberService memberService,
             RentalNoticeEmailLogDao emailLogDao,
             ObjectProvider<JavaMailSender> mailSenderProvider,
@@ -84,6 +92,7 @@ public class RentalNoticeEmailService {
             String frontendOrigin
     ) {
         this.favoriteService = favoriteService;
+        this.recommendationService = recommendationService;
         this.memberService = memberService;
         this.emailLogDao = emailLogDao;
         this.mailSenderProvider = mailSenderProvider;
@@ -123,6 +132,42 @@ public class RentalNoticeEmailService {
             String subject = "[HomeFit] " + eventType.get().label() + ": " + favorite.notice().title();
             mailSender.send(message(mailSender, member.get().getEmail(), subject, favorite, eventType.get()));
             emailLogDao.save(userId, favorite.notice().noticeId(), eventName, member.get().getEmail(), subject);
+            sent++;
+        }
+        return new EmailRunResult(sent, skipped, 0, 0);
+    }
+
+    public EmailRunResult sendRecommendedNoticeEmails(
+            String userId,
+            RentalRecommendationService.RecommendationCriteria criteria,
+            int limit
+    ) {
+        Optional<MemberDto> member = memberService.findByUserId(userId);
+        if (member.isEmpty() || !StringUtils.hasText(member.get().getEmail())) {
+            return new EmailRunResult(0, 0, 1, 0);
+        }
+        if (!member.get().isRentalNoticeEmailEnabled()) {
+            return new EmailRunResult(0, 0, 0, 1);
+        }
+
+        List<RentalRecommendation> recommendations = recommendationService.recommend(userId, Math.min(Math.max(limit, 1), 10), criteria);
+        int sent = 0;
+        int skipped = 0;
+        for (RentalRecommendation recommendation : recommendations) {
+            String eventName = RentalNoticeEmailEventType.RECOMMENDATION.name();
+            String noticeId = recommendation.notice().noticeId();
+            if (emailLogDao.exists(userId, noticeId, eventName)) {
+                skipped++;
+                continue;
+            }
+            JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+            if (mailSender == null) {
+                skipped++;
+                continue;
+            }
+            String subject = "[HomeFit] 맞춤 LH 추천: " + recommendation.notice().title();
+            mailSender.send(message(mailSender, member.get().getEmail(), subject, recommendation));
+            emailLogDao.save(userId, noticeId, eventName, member.get().getEmail(), subject);
             sent++;
         }
         return new EmailRunResult(sent, skipped, 0, 0);
@@ -172,6 +217,24 @@ public class RentalNoticeEmailService {
             return message;
         } catch (MessagingException exception) {
             throw new IllegalStateException("Failed to create rental notice email.", exception);
+        }
+    }
+
+    private MimeMessage message(
+            JavaMailSender mailSender,
+            String recipient,
+            String subject,
+            RentalRecommendation recommendation
+    ) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(recipient);
+            helper.setSubject(subject);
+            helper.setText(plainRecommendationBody(recommendation), htmlRecommendationBody(recommendation));
+            return message;
+        } catch (MessagingException exception) {
+            throw new IllegalStateException("Failed to create rental recommendation email.", exception);
         }
     }
 
@@ -236,6 +299,68 @@ public class RentalNoticeEmailService {
                 bullet("지역", detail.notice().regionName()),
                 bullet("접수 기간", displayStartDate(detail) + " ~ " + displayEndDate(detail)),
                 bullet("문의", displayText(detail.detail().contact())),
+                homeUrl,
+                detailUrl
+        );
+    }
+
+    private String plainRecommendationBody(RentalRecommendation recommendation) {
+        return """
+                HomeFit 마이데이터 기준 LH 추천 공고입니다.
+
+                ● 공고명: %s
+                ● 지역: %s
+                ● 유형: %s
+                ● 추천 점수: %d점
+                ● 추천 이유: %s
+
+                HomeFit 홈페이지: %s
+                LH 상세 링크: %s
+                """.formatted(
+                recommendation.notice().title(),
+                displayText(recommendation.notice().regionName()),
+                displayText(recommendation.notice().detailType()),
+                recommendation.score(),
+                String.join(", ", recommendation.reasons()),
+                homeUrl(),
+                displayText(recommendation.notice().detailUrl())
+        );
+    }
+
+    private String htmlRecommendationBody(RentalRecommendation recommendation) {
+        String homeUrl = escape(homeUrl());
+        String detailUrl = escape(recommendation.notice().detailUrl());
+        String reasons = recommendation.reasons().isEmpty()
+                ? "추천 조건을 기준으로 확인할 만한 공고입니다."
+                : String.join(", ", recommendation.reasons());
+        return """
+                <!doctype html>
+                <html lang="ko">
+                <body style="margin:0;background:#f5f7fb;padding:32px 0;font-family:Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111827;">
+                  <div style="width:100%%;max-width:640px;margin:0 auto;background:#ffffff;border-radius:18px;padding:42px 44px;box-sizing:border-box;">
+                    <div style="font-weight:900;font-size:22px;color:#b4212a;margin-bottom:36px;">HomeFit</div>
+                    <h1 style="margin:0 0 20px;font-size:28px;line-height:1.35;font-weight:900;color:#111827;">마이데이터 기준 LH 추천 공고입니다.</h1>
+                    <p style="margin:0 0 28px;font-size:15px;line-height:1.8;color:#374151;">저장해둔 관심 지역과 조건을 바탕으로 확인할 만한 공고를 골랐습니다.</p>
+                    <div style="margin:0 0 30px;padding:22px 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;">
+                      %s
+                      %s
+                      %s
+                      %s
+                      %s
+                    </div>
+                    <a href="%s" style="display:inline-block;background:#b4212a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:900;padding:14px 24px;border-radius:18px;">HomeFit에서 추천 공고 보기</a>
+                    <p style="margin:28px 0 0;font-size:13px;line-height:1.7;color:#6b7280;">
+                      LH 상세 링크: <a href="%s" style="color:#b4212a;text-decoration:underline;">공고 원문 보기</a>
+                    </p>
+                  </div>
+                </body>
+                </html>
+                """.formatted(
+                bullet("공고명", recommendation.notice().title()),
+                bullet("지역", recommendation.notice().regionName()),
+                bullet("유형", recommendation.notice().detailType()),
+                bullet("추천 점수", recommendation.score() + "점"),
+                bullet("추천 이유", reasons),
                 homeUrl,
                 detailUrl
         );

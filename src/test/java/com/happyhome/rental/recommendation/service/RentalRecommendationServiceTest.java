@@ -50,6 +50,27 @@ class RentalRecommendationServiceTest {
         assertThat(recommendations.get(0).reasons()).contains("자산 범위 안의 예상 보증금입니다.");
     }
 
+    @Test
+    void prioritizesPreferredRegionsAndRentalTypesFromMyData() {
+        when(financialProfileService.findByUserId("ssafy")).thenReturn(Optional.of(profile("100000000")));
+        RentalNotice preferred = notice("LH-SEOUL", "서울 행복주택 입주자 모집", "공고중", "서울특별시", "행복주택");
+        RentalNotice other = notice("LH-BUSAN", "부산 국민임대 입주자 모집", "공고중", "부산광역시", "국민임대");
+        when(rentalService.notices(any(RentalSearchCondition.class))).thenReturn(List.of(other, preferred));
+        when(rentalService.detail("LH-SEOUL")).thenReturn(detail(preferred, "2026.06.20", "2026.06.24", "보증금 5,000만원"));
+        when(rentalService.detail("LH-BUSAN")).thenReturn(detail(other, "2026.06.20", "2026.06.24", "보증금 5,000만원"));
+
+        List<RentalRecommendation> recommendations = service.recommend(
+                "ssafy",
+                10,
+                new RentalRecommendationService.RecommendationCriteria(List.of("서울"), List.of("행복주택"))
+        );
+
+        assertThat(recommendations).extracting(item -> item.notice().noticeId())
+                .containsExactly("LH-SEOUL", "LH-BUSAN");
+        assertThat(recommendations.get(0).reasons())
+                .contains("희망 지역과 일치하는 공고입니다.", "관심 임대 유형과 일치합니다.");
+    }
+
     private FinancialProfile profile(String assets) {
         return new FinancialProfile(
                 "ssafy",
@@ -63,6 +84,12 @@ class RentalRecommendationServiceTest {
 
     private RentalNotice notice(String noticeId, String title, String status) {
         return new RentalNotice(noticeId, title, "서울", "임대", "행복주택", status,
+                "2026.06.01", "2026.06.30", "https://apply.lh.or.kr",
+                "01", "01", "10", "010", "api");
+    }
+
+    private RentalNotice notice(String noticeId, String title, String status, String regionName, String detailType) {
+        return new RentalNotice(noticeId, title, regionName, "임대", detailType, status,
                 "2026.06.01", "2026.06.30", "https://apply.lh.or.kr",
                 "01", "01", "10", "010", "api");
     }

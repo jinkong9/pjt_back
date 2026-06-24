@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/favorites/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/rentals/favorites").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/rentals/favorites/emails/send").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/rentals/recommendations/emails/send").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/rentals/*/favorite/toggle").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/rentals/recommendations").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/loans/property-analysis").authenticated()
