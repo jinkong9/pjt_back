@@ -4,6 +4,7 @@ import com.happyhome.transfer.dao.TransferDao;
 import com.happyhome.transfer.dto.TransferDto;
 import com.happyhome.transfer.dto.TransferRequest;
 import com.happyhome.transfer.dto.TransferSearchCondition;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -28,20 +29,26 @@ public class TransferService {
         normalized.setKeyword(trimToNull(normalized.getKeyword()));
         normalized.setStatus(trimToNull(normalized.getStatus()));
         normalized.setLimit(normalizeLimit(normalized.getLimit()));
-        return transferDao.findAll(normalized);
+        return transferDao.findAll(normalized).stream()
+                .map(this::withDisplayImageUrls)
+                .toList();
     }
 
     public Optional<TransferDto> findById(int transferId, boolean increaseViewCount) {
         if (increaseViewCount) {
             transferDao.increaseViewCount(transferId);
         }
-        return transferDao.findById(transferId);
+        return transferDao.findById(transferId).map(this::withDisplayImageUrls);
+    }
+
+    public Optional<URI> findImageRedirectUrl(String imageUrl) {
+        return imageStorage.redirectUrl(imageUrl);
     }
 
     @Transactional
     public TransferDto create(TransferRequest request, String writerId) {
         TransferDto transfer = toTransfer(new TransferDto(), request, writerId);
-        return transferDao.save(transfer);
+        return withDisplayImageUrls(transferDao.save(transfer));
     }
 
     @Transactional
@@ -51,7 +58,7 @@ public class TransferService {
             TransferDto transfer = toTransfer(existing, request, writerId);
             transfer.setTransferId(transferId);
             transferDao.update(transfer);
-            return transferDao.findById(transferId).orElse(transfer);
+            return withDisplayImageUrls(transferDao.findById(transferId).orElse(transfer));
         });
     }
 
@@ -103,6 +110,7 @@ public class TransferService {
             request.getImageUrls().stream()
                     .filter(StringUtils::hasText)
                     .map(String::trim)
+                    .map(imageStorage::toStoredUrl)
                     .forEach(imageUrls::add);
         }
         if (request.getImages() != null) {
@@ -127,6 +135,15 @@ public class TransferService {
 
     private String trimToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private TransferDto withDisplayImageUrls(TransferDto transfer) {
+        if (transfer.getImageUrls() != null) {
+            transfer.setImageUrls(transfer.getImageUrls().stream()
+                    .map(imageStorage::toDisplayUrl)
+                    .toList());
+        }
+        return transfer;
     }
 
     private void assertWriter(TransferDto transfer, String writerId) {

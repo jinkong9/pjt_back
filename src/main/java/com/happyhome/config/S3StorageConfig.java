@@ -11,6 +11,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Configuration
 public class S3StorageConfig {
@@ -30,13 +31,27 @@ public class S3StorageConfig {
 
     @Bean
     @ConditionalOnExpression("'${happyhome.s3.access-key:}' != '' && '${happyhome.s3.secret-key:}' != '' && '${happyhome.s3.bucket:}' != ''")
+    S3Presigner happyHomeS3Presigner(
+            @Value("${happyhome.s3.access-key}") String accessKey,
+            @Value("${happyhome.s3.secret-key}") String secretKey,
+            @Value("${happyhome.s3.region:ap-northeast-2}") String region
+    ) {
+        return S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnExpression("'${happyhome.s3.access-key:}' != '' && '${happyhome.s3.secret-key:}' != '' && '${happyhome.s3.bucket:}' != ''")
     TransferImageStorage s3TransferImageStorage(
             S3Client s3Client,
+            S3Presigner s3Presigner,
             @Value("${happyhome.s3.bucket}") String bucket,
             @Value("${happyhome.s3.region:ap-northeast-2}") String region,
             @Value("${happyhome.s3.public-base-url:}") String publicBaseUrl
     ) {
         String resolvedBaseUrl = StringUtils.hasText(publicBaseUrl) ? publicBaseUrl : "";
-        return new S3TransferImageStorage(s3Client, bucket, region, resolvedBaseUrl);
+        return new S3TransferImageStorage(s3Client, s3Presigner, bucket, region, resolvedBaseUrl);
     }
 }
