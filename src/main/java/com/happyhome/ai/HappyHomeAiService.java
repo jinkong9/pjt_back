@@ -86,12 +86,12 @@ public class HappyHomeAiService {
     }
 
     private AiChatResponse chatWithGmsCompatibleApi(String question) {
+        List<HouseDeal> recentDeals = safeRecentDeals(Math.min(bootstrapLimit, 8));
         if (!StringUtils.hasText(apiKey)) {
-            return new AiChatResponse(fallbackAnswer(), indexedDocumentCount);
+            return new AiChatResponse(localDealAnswer(question, recentDeals), recentDeals.size());
         }
 
         try {
-            List<HouseDeal> recentDeals = houseDealService.findRecent(Math.min(bootstrapLimit, 8));
             String context = contextFromDeals(recentDeals);
             List<Map<String, String>> messages = new ArrayList<>();
             messages.add(Map.of(
@@ -111,7 +111,7 @@ public class HappyHomeAiService {
             Map<String, Object> requestBody = Map.of(
                     "model", chatModel,
                     "messages", messages,
-                    "max_tokens", 1024,
+                    "max_completion_tokens", 1024,
                     "temperature", 0.3
             );
 
@@ -131,13 +131,22 @@ public class HappyHomeAiService {
                     .asText("");
 
             if (!StringUtils.hasText(answer)) {
-                return new AiChatResponse(fallbackAnswer(), indexedDocumentCount);
+                return new AiChatResponse(localDealAnswer(question, recentDeals), recentDeals.size());
             }
 
             return new AiChatResponse(answer, recentDeals.size());
         } catch (IOException | RuntimeException exception) {
             log.warn("HappyHome GMS-compatible chat failed: {}", exception.getMessage());
-            return new AiChatResponse(fallbackAnswer(), indexedDocumentCount);
+            return new AiChatResponse(localDealAnswer(question, recentDeals), recentDeals.size());
+        }
+    }
+
+    private List<HouseDeal> safeRecentDeals(int limit) {
+        try {
+            return houseDealService.findRecent(limit);
+        } catch (RuntimeException exception) {
+            log.warn("HappyHome local deal fallback failed: {}", exception.getMessage());
+            return List.of();
         }
     }
 
@@ -163,11 +172,55 @@ public class HappyHomeAiService {
         return normalizedBaseUrl + normalizedPath;
     }
 
-    private String fallbackAnswer() {
-        return """
-                현재 AI 설정을 확인해야 해서 RAG 답변을 생성하지 못했어요.
-                GMS API 설정을 확인한 뒤 다시 질문해 주세요.
-                """;
+    private String localDealAnswer(String question, List<HouseDeal> deals) {
+        if (deals == null || deals.isEmpty()) {
+            return """
+                    지금은 AI 응답 서버 연결이 불안정해서 간단 답변으로 안내할게요.
+                    현재 조회 가능한 최근 실거래 데이터가 없어서 지역명이나 아파트명을 바꿔 다시 검색해 주세요.
+                    """;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("AI 응답 서버 연결이 불안정해서 최근 실거래 데이터 기준으로 먼저 안내할게요.\n");
+        builder.append("질문: ").append(question).append("\n\n");
+        int count = Math.min(deals.size(), 5);
+        for (int index = 0; index < count; index++) {
+            HouseDeal deal = deals.get(index);
+            builder.append(index + 1)
+                    .append(". ")
+                    .append(value(deal.getAptName()))
+                    .append(" - ")
+                    .append(value(regionOf(deal)))
+                    .append(", 거래금액 ")
+                    .append(value(deal.getDealAmount()))
+                    .append(", 거래일 ")
+                    .append(value(deal.getDealDate()))
+                    .append("\n");
+        }
+        builder.append("\n연결이 복구되면 더 자세한 추천 답변도 제공할 수 있어요.");
+        return builder.toString();
+    }
+
+    private String regionOf(HouseDeal deal) {
+        List<String> parts = new ArrayList<>();
+        addIfText(parts, deal.getSidoName());
+        addIfText(parts, deal.getGugunName());
+        addIfText(parts, deal.getDongName() != null ? deal.getDongName() : deal.getUmdName());
+        return String.join(" ", parts);
+    }
+
+    private void addIfText(List<String> values, String value) {
+        if (StringUtils.hasText(value)) {
+            values.add(value.trim());
+        }
+    }
+
+    private String value(Object value) {
+        if (value == null) {
+            return "-";
+        }
+        String text = value.toString();
+        return text.isBlank() ? "-" : text;
     }
 
     private synchronized void ensureIndexed() {
