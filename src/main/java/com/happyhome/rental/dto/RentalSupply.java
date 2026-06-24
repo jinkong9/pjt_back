@@ -11,8 +11,40 @@ public record RentalSupply(
         String householdCount,
         String internetApplyStatus,
         String mapAddress,
-        String mapUrl
+        String mapUrl,
+        Double latitude,
+        Double longitude
 ) {
+    public RentalSupply(
+            String usage,
+            String address,
+            String lotNumber,
+            String area,
+            String expectedAmount,
+            String expectedAmountRaw,
+            String houseType,
+            String householdCount,
+            String internetApplyStatus,
+            String mapAddress,
+            String mapUrl
+    ) {
+        this(
+                usage,
+                address,
+                lotNumber,
+                area,
+                expectedAmount,
+                expectedAmountRaw,
+                houseType,
+                householdCount,
+                internetApplyStatus,
+                mapAddress,
+                mapUrl,
+                null,
+                null
+        );
+    }
+
     public RentalSupply(
             String usage,
             String address,
@@ -32,7 +64,9 @@ public record RentalSupply(
                 householdCount,
                 "",
                 address,
-                mapUrl(address)
+                mapUrl(address),
+                null,
+                null
         );
     }
 

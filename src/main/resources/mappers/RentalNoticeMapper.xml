@@ -48,6 +48,8 @@
 			<arg column="internet_apply_status" javaType="string" />
 			<arg column="map_address" javaType="string" />
 			<arg column="map_url" javaType="string" />
+			<arg column="latitude" javaType="java.lang.Double" />
+			<arg column="longitude" javaType="java.lang.Double" />
 		</constructor>
 	</resultMap>
 
@@ -134,15 +136,17 @@
 		SELECT
 			`usage`,
 			address,
-			'' AS lot_number,
+			lot_number,
 			area,
 			expected_amount,
 			expected_amount AS expected_amount_raw,
 			house_type,
 			household_count,
-			'' AS internet_apply_status,
-			address AS map_address,
-			'' AS map_url
+			internet_apply_status,
+			COALESCE(NULLIF(map_address, ''), TRIM(CONCAT(COALESCE(address, ''), ' ', COALESCE(lot_number, '')))) AS map_address,
+			COALESCE(map_url, '') AS map_url,
+			latitude,
+			longitude
 		FROM lh_notice_supplies
 		WHERE notice_id = #{noticeId}
 		ORDER BY supply_id ASC
