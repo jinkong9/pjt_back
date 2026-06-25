@@ -13,6 +13,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
@@ -151,26 +152,32 @@ public class RentalNoticeEmailService {
         }
 
         List<RentalRecommendation> recommendations = recommendationService.recommend(userId, Math.min(Math.max(limit, 1), 10), criteria);
-        int sent = 0;
         int skipped = 0;
+        List<RentalRecommendation> pendingRecommendations = new ArrayList<>();
+        String eventName = RentalNoticeEmailEventType.RECOMMENDATION.name();
         for (RentalRecommendation recommendation : recommendations) {
-            String eventName = RentalNoticeEmailEventType.RECOMMENDATION.name();
             String noticeId = recommendation.notice().noticeId();
             if (emailLogDao.exists(userId, noticeId, eventName)) {
                 skipped++;
                 continue;
             }
-            JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-            if (mailSender == null) {
-                skipped++;
-                continue;
-            }
-            String subject = "[HomeFit] 맞춤 LH 추천: " + recommendation.notice().title();
-            mailSender.send(message(mailSender, member.get().getEmail(), subject, recommendation));
-            emailLogDao.save(userId, noticeId, eventName, member.get().getEmail(), subject);
-            sent++;
+            pendingRecommendations.add(recommendation);
         }
-        return new EmailRunResult(sent, skipped, 0, 0);
+        if (pendingRecommendations.isEmpty()) {
+            return new EmailRunResult(0, skipped, 0, 0);
+        }
+
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null) {
+            return new EmailRunResult(0, skipped + pendingRecommendations.size(), 0, 0);
+        }
+
+        String subject = "[HomeFit] 맞춤 LH 추천 공고 " + pendingRecommendations.size() + "건";
+        mailSender.send(message(mailSender, member.get().getEmail(), subject, pendingRecommendations));
+        for (RentalRecommendation recommendation : pendingRecommendations) {
+            emailLogDao.save(userId, recommendation.notice().noticeId(), eventName, member.get().getEmail(), subject);
+        }
+        return new EmailRunResult(pendingRecommendations.size(), skipped, 0, 0);
     }
 
     public List<EmailRunResult> sendAllFavoriteNoticeEmails() {
@@ -224,14 +231,14 @@ public class RentalNoticeEmailService {
             JavaMailSender mailSender,
             String recipient,
             String subject,
-            RentalRecommendation recommendation
+            List<RentalRecommendation> recommendations
     ) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(recipient);
             helper.setSubject(subject);
-            helper.setText(plainRecommendationBody(recommendation), htmlRecommendationBody(recommendation));
+            helper.setText(plainRecommendationBody(recommendations), htmlRecommendationBody(recommendations));
             return message;
         } catch (MessagingException exception) {
             throw new IllegalStateException("Failed to create rental recommendation email.", exception);
@@ -304,64 +311,98 @@ public class RentalNoticeEmailService {
         );
     }
 
-    private String plainRecommendationBody(RentalRecommendation recommendation) {
-        return """
-                HomeFit 마이데이터 기준 LH 추천 공고입니다.
+    private String plainRecommendationBody(List<RentalRecommendation> recommendations) {
+        StringBuilder body = new StringBuilder("""
+                HomeFit 맞춤 LH 추천 공고입니다.
 
-                ● 공고명: %s
-                ● 지역: %s
-                ● 유형: %s
-                ● 추천 점수: %d점
-                ● 추천 이유: %s
+                저장해둔 관심 지역과 조건을 바탕으로 확인할 만한 공고를 골랐습니다.
 
-                HomeFit 홈페이지: %s
-                LH 상세 링크: %s
-                """.formatted(
-                recommendation.notice().title(),
-                displayText(recommendation.notice().regionName()),
-                displayText(recommendation.notice().detailType()),
-                recommendation.score(),
-                String.join(", ", recommendation.reasons()),
-                homeUrl(),
-                displayText(recommendation.notice().detailUrl())
-        );
+                """);
+        for (int index = 0; index < recommendations.size(); index++) {
+            RentalRecommendation recommendation = recommendations.get(index);
+            String reasons = recommendation.reasons().isEmpty()
+                    ? "추천 조건을 기준으로 확인할 만한 공고입니다."
+                    : String.join(", ", recommendation.reasons());
+            body.append("""
+                    [%d] %s
+                    ● 지역: %s
+                    ● 유형: %s
+                    ● 추천 점수: %d점
+                    ● 추천 이유: %s
+                    ● LH 상세 링크: %s
+
+                    """.formatted(
+                    index + 1,
+                    recommendation.notice().title(),
+                    displayText(recommendation.notice().regionName()),
+                    displayText(recommendation.notice().detailType()),
+                    recommendation.score(),
+                    reasons,
+                    displayText(recommendation.notice().detailUrl())
+            ));
+        }
+        body.append("HomeFit 홈페이지: ").append(homeUrl()).append("\n");
+        return body.toString();
     }
 
-    private String htmlRecommendationBody(RentalRecommendation recommendation) {
+    private String htmlRecommendationBody(List<RentalRecommendation> recommendations) {
         String homeUrl = escape(homeUrl());
-        String detailUrl = escape(recommendation.notice().detailUrl());
-        String reasons = recommendation.reasons().isEmpty()
-                ? "추천 조건을 기준으로 확인할 만한 공고입니다."
-                : String.join(", ", recommendation.reasons());
+        String cards = recommendations.stream()
+                .map(this::recommendationCard)
+                .reduce("", String::concat);
         return """
                 <!doctype html>
                 <html lang="ko">
                 <body style="margin:0;background:#f5f7fb;padding:32px 0;font-family:Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111827;">
                   <div style="width:100%%;max-width:640px;margin:0 auto;background:#ffffff;border-radius:18px;padding:42px 44px;box-sizing:border-box;">
-                    <div style="font-weight:900;font-size:22px;color:#b4212a;margin-bottom:36px;">HomeFit</div>
-                    <h1 style="margin:0 0 20px;font-size:28px;line-height:1.35;font-weight:900;color:#111827;">마이데이터 기준 LH 추천 공고입니다.</h1>
-                    <p style="margin:0 0 28px;font-size:15px;line-height:1.8;color:#374151;">저장해둔 관심 지역과 조건을 바탕으로 확인할 만한 공고를 골랐습니다.</p>
+                    <div style="font-weight:900;font-size:22px;color:#2563eb;margin-bottom:36px;">HomeFit</div>
+                    <h1 style="margin:0 0 20px;font-size:28px;line-height:1.35;font-weight:900;letter-spacing:-0.02em;color:#111827;">관심 공고 접수 알림드립니다.</h1>
+                    <p style="margin:0 0 28px;font-size:15px;line-height:1.8;color:#374151;">
+                      안녕하세요.<br>
+                      HomeFit에서 마이데이터와 관심 조건을 바탕으로 맞춤 LH 추천 공고를 안내드립니다.
+                    </p>
                     <div style="margin:0 0 30px;padding:22px 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;">
                       %s
-                      %s
-                      %s
-                      %s
+                    </div>
+                    <div style="margin:0 0 24px;max-height:560px;overflow-y:auto;padding-right:8px;">
                       %s
                     </div>
-                    <a href="%s" style="display:inline-block;background:#b4212a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:900;padding:14px 24px;border-radius:18px;">HomeFit에서 추천 공고 보기</a>
-                    <p style="margin:28px 0 0;font-size:13px;line-height:1.7;color:#6b7280;">
-                      LH 상세 링크: <a href="%s" style="color:#b4212a;text-decoration:underline;">공고 원문 보기</a>
+                    <p style="margin:0 0 24px;font-size:14px;line-height:1.8;color:#4b5563;">
+                      추천 공고가 여러 건이면 아래 목록을 계속 스크롤해서 확인하실 수 있습니다.
                     </p>
+                    <a href="%s" style="display:inline-block;background:#315bff;color:#ffffff;text-decoration:none;font-size:15px;font-weight:900;padding:14px 24px;border-radius:18px;">HomeFit 홈페이지 바로가기</a>
                   </div>
                 </body>
                 </html>
+                """.formatted(
+                bullet("알림 유형", RentalNoticeEmailEventType.RECOMMENDATION.label()),
+                cards,
+                homeUrl
+        );
+    }
+
+    private String recommendationCard(RentalRecommendation recommendation) {
+        String reasons = recommendation.reasons().isEmpty()
+                ? "추천 조건을 기준으로 확인할 만한 공고입니다."
+                : String.join(", ", recommendation.reasons());
+        String detailUrl = escape(recommendation.notice().detailUrl());
+        return """
+                <div style="margin:0 0 16px;padding:20px 22px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;">
+                  %s
+                  %s
+                  %s
+                  %s
+                  %s
+                  <p style="margin:12px 0 0;font-size:13px;line-height:1.7;color:#6b7280;">
+                    LH 상세 링크: <a href="%s" style="color:#315bff;text-decoration:underline;">공고 원문 보기</a>
+                  </p>
+                </div>
                 """.formatted(
                 bullet("공고명", recommendation.notice().title()),
                 bullet("지역", recommendation.notice().regionName()),
                 bullet("유형", recommendation.notice().detailType()),
                 bullet("추천 점수", recommendation.score() + "점"),
                 bullet("추천 이유", reasons),
-                homeUrl,
                 detailUrl
         );
     }

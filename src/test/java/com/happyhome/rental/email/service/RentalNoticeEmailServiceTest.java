@@ -142,7 +142,7 @@ class RentalNoticeEmailServiceTest {
     }
 
     @Test
-    void sendsRecommendedNoticeEmailFromMyDataCriteriaOncePerNoticeAndUser() throws Exception {
+    void sendsRecommendedNoticeDigestEmailFromMyDataCriteria() throws Exception {
         MemberDto member = member("ssafy", "ssafy@example.com");
         member.setRentalNoticeEmailEnabled(true);
         MimeMessage message = new MimeMessage((Session) null);
@@ -162,33 +162,62 @@ class RentalNoticeEmailServiceTest {
                 "010",
                 "api"
         );
+        RentalNotice secondNotice = new RentalNotice(
+                "LH-REC-2",
+                "부산 청년매입임대 추천 공고",
+                "부산광역시",
+                "임대",
+                "매입임대",
+                "공고중",
+                "2026.06.21",
+                "2026.07.02",
+                "https://apply.lh.or.kr/2",
+                "02",
+                "02",
+                "20",
+                "020",
+                "api"
+        );
         RentalRecommendationService.RecommendationCriteria criteria =
                 new RentalRecommendationService.RecommendationCriteria(List.of("서울"), List.of("행복주택"));
 
         when(memberService.findByUserId("ssafy")).thenReturn(Optional.of(member));
         when(recommendationService.recommend("ssafy", 5, criteria)).thenReturn(List.of(
-                new RentalRecommendation(notice, 130, List.of("희망 지역과 일치하는 공고입니다."), List.of())
+                new RentalRecommendation(notice, 130, List.of("희망 지역과 일치하는 공고입니다."), List.of()),
+                new RentalRecommendation(secondNotice, 92, List.of("신청 가능한 공고입니다."), List.of())
         ));
         when(emailLogDao.exists("ssafy", "LH-REC-1", "RECOMMENDATION")).thenReturn(false);
+        when(emailLogDao.exists("ssafy", "LH-REC-2", "RECOMMENDATION")).thenReturn(false);
         when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         RentalNoticeEmailService.EmailRunResult result =
                 service.sendRecommendedNoticeEmails("ssafy", criteria, 5);
 
-        assertThat(result.sentCount()).isEqualTo(1);
+        assertThat(result.sentCount()).isEqualTo(2);
         assertThat(extractText(message.getContent()))
-                .contains("마이데이터 기준 LH 추천 공고")
+                .contains("관심 공고 접수 알림드립니다.")
+                .contains("맞춤 LH 추천 공고")
+                .contains("overflow-y:auto")
                 .contains("서울 행복주택 추천 공고")
-                .contains("희망 지역과 일치하는 공고입니다.");
+                .contains("희망 지역과 일치하는 공고입니다.")
+                .contains("부산 청년매입임대 추천 공고")
+                .contains("신청 가능한 공고입니다.");
         Mockito.verify(emailLogDao).save(
                 Mockito.eq("ssafy"),
                 Mockito.eq("LH-REC-1"),
                 Mockito.eq("RECOMMENDATION"),
                 Mockito.eq("ssafy@example.com"),
-                Mockito.eq("[HomeFit] 맞춤 LH 추천: 서울 행복주택 추천 공고")
+                Mockito.eq("[HomeFit] 맞춤 LH 추천 공고 2건")
         );
-        Mockito.verify(mailSender).send(message);
+        Mockito.verify(emailLogDao).save(
+                Mockito.eq("ssafy"),
+                Mockito.eq("LH-REC-2"),
+                Mockito.eq("RECOMMENDATION"),
+                Mockito.eq("ssafy@example.com"),
+                Mockito.eq("[HomeFit] 맞춤 LH 추천 공고 2건")
+        );
+        Mockito.verify(mailSender, Mockito.times(1)).send(message);
     }
 
     private MemberDto member(String userId, String email) {

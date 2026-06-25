@@ -14,11 +14,15 @@ import com.happyhome.rental.dto.RentalNotice;
 import com.happyhome.rental.dto.RentalNoticeDetail;
 import com.happyhome.rental.dto.RentalSearchCondition;
 import com.happyhome.rental.dto.RentalSupply;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,12 +31,14 @@ public class RentalService {
 
     private static final int CALENDAR_ENRICHMENT_SIZE = 50;
     private static final int LH_NOTICE_LOOKBACK_DAYS = 90;
+    private static final Duration LH_REFRESH_TTL = Duration.ofMinutes(5);
     private static final DateTimeFormatter API_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
     private final LhOpenApiClient lhClient;
     private final RentalNoticeMapper mapper;
     private final NoticeLHBatchMapper noticeLHBatchMapper;
     private final KakaoLocalApiClient kakaoLocalApiClient;
+    private final Map<String, Instant> lhRefreshTimes = new ConcurrentHashMap<>();
 
     @Autowired
     public RentalService(
@@ -68,6 +74,10 @@ public class RentalService {
         return enrichCalendarDatesIfNeeded(condition, notices);
     }
 
+    public List<RentalNotice> cachedNotices(RentalSearchCondition condition) {
+        return mapper.findByCondition(condition);
+    }
+
     public RentalNoticeDetail detail(String noticeId) {
         RentalNotice notice = mapper.findById(noticeId)
                 .orElseGet(() -> SampleData.rentalNotices().stream()
@@ -77,6 +87,20 @@ public class RentalService {
         RentalDetail detail = detailFor(notice);
         List<RentalSupply> supplies = suppliesFor(notice);
         return new RentalNoticeDetail(notice, detail, suppliesWithCoordinates(supplies));
+    }
+
+    public RentalNoticeDetail cachedDetail(String noticeId) {
+        RentalNotice notice = mapper.findById(noticeId)
+                .orElseGet(() -> uncachedNotice(noticeId));
+        RentalDetail detail = mapper.findDetailByNoticeId(noticeId)
+                .orElseGet(() -> new RentalDetail(
+                        "",
+                        "",
+                        notice.applyStartDate(),
+                        notice.applyEndDate(),
+                        ""
+                ));
+        return new RentalNoticeDetail(notice, detail, mapper.findSuppliesByNoticeId(noticeId));
     }
 
     private RentalDetail detailFor(RentalNotice notice) {
@@ -150,6 +174,13 @@ public class RentalService {
         if (!lhClient.isConfigured()) {
             return;
         }
+        Instant now = Instant.now();
+        String refreshKey = refreshKey(condition);
+        Instant lastRefresh = lhRefreshTimes.get(refreshKey);
+        if (lastRefresh != null && lastRefresh.plus(LH_REFRESH_TTL).isAfter(now)) {
+            return;
+        }
+        lhRefreshTimes.put(refreshKey, now);
         try {
             String noticeStartDate = LocalDate.now().minusDays(LH_NOTICE_LOOKBACK_DAYS).format(API_DATE_FORMAT);
             List<RentalNotice> notices = lhClient.apiNotices(condition, noticeStartDate, "2099.12.31");
@@ -157,6 +188,23 @@ public class RentalService {
         } catch (Exception ignored) {
             // Cached data is still usable when the live LH list refresh is unavailable.
         }
+    }
+
+    private String refreshKey(RentalSearchCondition condition) {
+        if (condition == null) {
+            return "";
+        }
+        return String.join("|",
+                nullToEmpty(condition.keyword()),
+                nullToEmpty(condition.regionCode()),
+                nullToEmpty(condition.status()),
+                String.valueOf(condition.page()),
+                String.valueOf(condition.size())
+        );
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     private List<RentalNotice> enrichCalendarDatesIfNeeded(RentalSearchCondition condition, List<RentalNotice> notices) {

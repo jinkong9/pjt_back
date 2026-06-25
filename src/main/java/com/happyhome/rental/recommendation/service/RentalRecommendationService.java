@@ -55,7 +55,11 @@ public class RentalRecommendationService {
     public List<RentalRecommendation> recommend(String userId, int limit, RecommendationCriteria criteria) {
         FinancialProfile profile = financialProfileService.findByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Financial profile is required for LH recommendations."));
-        List<RentalNotice> notices = rentalService.notices(new RentalSearchCondition("", "", "", 1, Math.max(limit * 3, 30)));
+        RentalSearchCondition condition = new RentalSearchCondition("", "", "", 1, Math.max(limit * 3, 30));
+        List<RentalNotice> notices = rentalService.cachedNotices(condition);
+        if (notices.isEmpty()) {
+            notices = rentalService.notices(condition);
+        }
         RecommendationCriteria normalizedCriteria = criteria == null ? RecommendationCriteria.empty() : criteria.normalized();
         return notices.stream()
                 .map(notice -> score(notice, profile, normalizedCriteria))
@@ -65,7 +69,7 @@ public class RentalRecommendationService {
     }
 
     private RentalRecommendation score(RentalNotice notice, FinancialProfile profile, RecommendationCriteria criteria) {
-        RentalNoticeDetail detail = rentalService.detail(notice.noticeId());
+        RentalNoticeDetail detail = rentalService.cachedDetail(notice.noticeId());
         List<String> reasons = new ArrayList<>();
         int score = 20;
 
