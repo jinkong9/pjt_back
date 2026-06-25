@@ -1,6 +1,7 @@
 package com.happyhome.rental.email.dto;
 
 public enum RentalNoticeEmailEventType {
+    RECOMMENDATION("마이데이터 기준 LH 추천 공고"),
     APPLY_OPEN("LH 공고 접수 시작"),
     APPLY_ACTIVE("LH 공고 접수 진행 중"),
     CLOSING_SOON_D3("LH 공고 마감 3일 전"),

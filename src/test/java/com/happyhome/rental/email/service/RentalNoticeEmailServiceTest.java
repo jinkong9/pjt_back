@@ -10,6 +10,8 @@ import com.happyhome.rental.dto.RentalNotice;
 import com.happyhome.rental.dto.RentalNoticeDetail;
 import com.happyhome.rental.email.dao.RentalNoticeEmailLogDao;
 import com.happyhome.rental.favorite.service.FavoriteRentalNoticeService;
+import com.happyhome.rental.recommendation.dto.RentalRecommendation;
+import com.happyhome.rental.recommendation.service.RentalRecommendationService;
 import jakarta.mail.BodyPart;
 import jakarta.mail.Multipart;
 import jakarta.mail.Session;
@@ -29,11 +31,13 @@ class RentalNoticeEmailServiceTest {
     private final FavoriteRentalNoticeService favoriteService = Mockito.mock(FavoriteRentalNoticeService.class);
     private final MemberService memberService = Mockito.mock(MemberService.class);
     private final RentalNoticeEmailLogDao emailLogDao = Mockito.mock(RentalNoticeEmailLogDao.class);
+    private final RentalRecommendationService recommendationService = Mockito.mock(RentalRecommendationService.class);
     private final ObjectProvider<JavaMailSender> mailSenderProvider = Mockito.mock(ObjectProvider.class);
     private final JavaMailSender mailSender = Mockito.mock(JavaMailSender.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-06-22T00:00:00Z"), ZoneId.of("Asia/Seoul"));
     private final RentalNoticeEmailService service = new RentalNoticeEmailService(
             favoriteService,
+            recommendationService,
             memberService,
             emailLogDao,
             mailSenderProvider,
@@ -134,6 +138,56 @@ class RentalNoticeEmailServiceTest {
                 .contains("Yeongjong notice")
                 .contains("HomeFit 홈페이지 바로가기")
                 .contains("https://homefit.example.com/home");
+        Mockito.verify(mailSender).send(message);
+    }
+
+    @Test
+    void sendsRecommendedNoticeEmailFromMyDataCriteriaOncePerNoticeAndUser() throws Exception {
+        MemberDto member = member("ssafy", "ssafy@example.com");
+        member.setRentalNoticeEmailEnabled(true);
+        MimeMessage message = new MimeMessage((Session) null);
+        RentalNotice notice = new RentalNotice(
+                "LH-REC-1",
+                "서울 행복주택 추천 공고",
+                "서울특별시",
+                "임대",
+                "행복주택",
+                "공고중",
+                "2026.06.20",
+                "2026.06.30",
+                "https://apply.lh.or.kr",
+                "01",
+                "01",
+                "10",
+                "010",
+                "api"
+        );
+        RentalRecommendationService.RecommendationCriteria criteria =
+                new RentalRecommendationService.RecommendationCriteria(List.of("서울"), List.of("행복주택"));
+
+        when(memberService.findByUserId("ssafy")).thenReturn(Optional.of(member));
+        when(recommendationService.recommend("ssafy", 5, criteria)).thenReturn(List.of(
+                new RentalRecommendation(notice, 130, List.of("희망 지역과 일치하는 공고입니다."), List.of())
+        ));
+        when(emailLogDao.exists("ssafy", "LH-REC-1", "RECOMMENDATION")).thenReturn(false);
+        when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        RentalNoticeEmailService.EmailRunResult result =
+                service.sendRecommendedNoticeEmails("ssafy", criteria, 5);
+
+        assertThat(result.sentCount()).isEqualTo(1);
+        assertThat(extractText(message.getContent()))
+                .contains("마이데이터 기준 LH 추천 공고")
+                .contains("서울 행복주택 추천 공고")
+                .contains("희망 지역과 일치하는 공고입니다.");
+        Mockito.verify(emailLogDao).save(
+                Mockito.eq("ssafy"),
+                Mockito.eq("LH-REC-1"),
+                Mockito.eq("RECOMMENDATION"),
+                Mockito.eq("ssafy@example.com"),
+                Mockito.eq("[HomeFit] 맞춤 LH 추천: 서울 행복주택 추천 공고")
+        );
         Mockito.verify(mailSender).send(message);
     }
 
