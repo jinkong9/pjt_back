@@ -164,21 +164,35 @@ public class LhOpenApiClient {
     }
 
     private RentalSupply supply(JsonNode node) {
-        String usage = text(node, "LND_US_DS_CD_NM", text(node, "SPL_INF_TP_NM", text(node, "HTY_NNA", "공급유형")));
-        String address = text(node, "LGDN_DTL_ADR", text(node, "ADDR", text(node, "SBD_LGO_NM", "")));
-        String lotNumber = text(node, "LNO", "");
+        String usage = textAny(node, "공급유형",
+                "LND_US_DS_CD_NM",
+                "SPL_INF_TP_NM",
+                "HTY_NNA",
+                "HTYPE",
+                "HOUSE_TY_NM",
+                "SBD_LGO_NM"
+        );
+        String address = textAny(node, "",
+                "LGDN_DTL_ADR",
+                "LGDN_ADR",
+                "ADDR",
+                "SBD_LGO_NM",
+                "SBD_NM",
+                "DNG_NM"
+        );
+        String lotNumber = textAny(node, "", "LNO", "LOT_NO", "DNG_HO", "HO_NM", "SIL_HO_NM");
         String amountRaw = expectedAmountRaw(node);
         String mapAddress = joinNonBlank(" ", address, lotNumber);
         return new RentalSupply(
                 usage,
                 address,
                 lotNumber,
-                text(node, "AR", text(node, "DDO_AR", "")),
+                textAny(node, "", "AR", "DDO_AR", "SUPLY_AR", "CNTR_AR", "EXUS_AR"),
                 expectedAmount(node, amountRaw),
                 amountRaw,
-                text(node, "HTYPE", text(node, "HOUSE_TY_NM", text(node, "HTY_NNA", ""))),
-                text(node, "HSH_CNT", text(node, "SPL_HSH_CNT", text(node, "NOW_HSH_CNT", ""))),
-                text(node, "SBSC_ACP_STTS_NM", defaultApplyStatus(node)),
+                textAny(node, "", "HTYPE", "HOUSE_TY_NM", "HTY_NNA"),
+                textAny(node, "", "HSH_CNT", "SPL_HSH_CNT", "NOW_HSH_CNT"),
+                textAny(node, defaultApplyStatus(node), "SBSC_ACP_STTS_NM", "ACP_STTS_NM"),
                 mapAddress,
                 naverMapUrl(mapAddress)
         );
@@ -199,6 +213,16 @@ public class LhOpenApiClient {
         return value.isBlank() ? fallback : value;
     }
 
+    private String textAny(JsonNode node, String fallback, String... fields) {
+        for (String field : fields) {
+            String value = node.path(field).asText("");
+            if (!value.isBlank()) {
+                return value;
+            }
+        }
+        return fallback;
+    }
+
     private String firstText(String value, String fallback) {
         return OpenApiUri.hasText(value) ? value : fallback;
     }
@@ -208,12 +232,12 @@ public class LhOpenApiClient {
     }
 
     private String expectedAmountRaw(JsonNode node) {
-        String landAmount = text(node, "SPL_XPC_AMT", "");
+        String landAmount = textAny(node, "", "SPL_XPC_AMT", "SPLPC", "SUPLY_XPC_AMT");
         if (OpenApiUri.hasText(landAmount)) {
             return landAmount;
         }
-        String deposit = text(node, "LS_GMY", "");
-        String rent = text(node, "RFE", "");
+        String deposit = textAny(node, "", "LS_GMY", "IMT_GMY", "RENT_GTN", "DEPOSIT");
+        String rent = textAny(node, "", "RFE", "MM_RNT", "MONTH_RENT");
         if (OpenApiUri.hasText(deposit) && OpenApiUri.hasText(rent)) {
             return "보증금 " + deposit + " / 월 " + rent;
         }
@@ -224,15 +248,15 @@ public class LhOpenApiClient {
     }
 
     private String expectedAmount(JsonNode node, String amountRaw) {
-        if (OpenApiUri.hasText(text(node, "SPL_XPC_AMT", ""))) {
+        if (OpenApiUri.hasText(textAny(node, "", "SPL_XPC_AMT", "SPLPC", "SUPLY_XPC_AMT"))) {
             return formatWon(amountRaw);
         }
         return amountRaw;
     }
 
     private String defaultApplyStatus(JsonNode node) {
-        boolean landBidSupply = OpenApiUri.hasText(text(node, "SPL_XPC_AMT", ""))
-                || OpenApiUri.hasText(text(node, "LNO", ""))
+        boolean landBidSupply = OpenApiUri.hasText(textAny(node, "", "SPL_XPC_AMT", "SPLPC", "SUPLY_XPC_AMT"))
+                || OpenApiUri.hasText(textAny(node, "", "LNO", "LOT_NO"))
                 || OpenApiUri.hasText(text(node, "LND_US_DS_CD_NM", ""));
         return landBidSupply ? "입찰신청전" : "";
     }

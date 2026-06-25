@@ -78,6 +78,10 @@ public class OpenApiJsonParser {
         if (node != null) {
             return node;
         }
+        node = bestNumberedDsListInArray(root);
+        if (node != null) {
+            return node;
+        }
         if (root.isArray()) {
             for (JsonNode child : root) {
                 JsonNode childNode = itemNode(child);
@@ -118,17 +122,67 @@ public class OpenApiJsonParser {
         if (!root.isObject()) {
             return null;
         }
+        JsonNode bestNode = null;
+        int bestScore = -1;
         java.util.Iterator<String> fieldNames = root.fieldNames();
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
             if (fieldName.startsWith("dsList") && !fieldName.endsWith("Nm")) {
                 JsonNode node = root.path(fieldName);
                 if (!node.isMissingNode() && !node.isNull()) {
-                    return node;
+                    int score = supplyListScore(node);
+                    if (score > bestScore) {
+                        bestNode = node;
+                        bestScore = score;
+                    }
                 }
             }
         }
-        return null;
+        return bestNode;
+    }
+
+    private JsonNode bestNumberedDsListInArray(JsonNode root) {
+        if (!root.isArray()) {
+            return null;
+        }
+        JsonNode bestNode = null;
+        int bestScore = -1;
+        for (JsonNode child : root) {
+            JsonNode node = numberedDsListNode(child);
+            if (node == null) {
+                continue;
+            }
+            int score = supplyListScore(node);
+            if (score > bestScore) {
+                bestNode = node;
+                bestScore = score;
+            }
+        }
+        return bestNode;
+    }
+
+    private int supplyListScore(JsonNode node) {
+        JsonNode sample = node.isArray() && !node.isEmpty() ? node.get(0) : node;
+        if (!sample.isObject()) {
+            return 0;
+        }
+        int score = 0;
+        for (String fieldName : List.of(
+                "LND_US_DS_CD_NM",
+                "LGDN_DTL_ADR",
+                "LNO",
+                "SPL_XPC_AMT",
+                "LS_GMY",
+                "RFE",
+                "SBD_LGO_NM",
+                "HTY_NNA",
+                "NOW_HSH_CNT"
+        )) {
+            if (sample.hasNonNull(fieldName) && !sample.path(fieldName).asText("").isBlank()) {
+                score++;
+            }
+        }
+        return score;
     }
 
     private JsonNode firstExisting(JsonNode... nodes) {

@@ -37,6 +37,28 @@ class LhOpenApiClientTest {
     }
 
     @Test
+    void mapsCommercialSupplyAliases() throws Exception {
+        JsonNode node = objectMapper.readTree("""
+                {
+                  "SBD_NM": "Seoul commercial complex",
+                  "SIL_HO_NM": "105",
+                  "SUPLY_AR": "31.84",
+                  "SPLPC": "2605152000",
+                  "ACP_STTS_NM": "available"
+                }
+                """);
+
+        RentalSupply supply = invokeSupply(node);
+
+        assertThat(supply.address()).isEqualTo("Seoul commercial complex");
+        assertThat(supply.lotNumber()).isEqualTo("105");
+        assertThat(supply.area()).isEqualTo("31.84");
+        assertThat(supply.expectedAmount()).isEqualTo("2,605,152,000");
+        assertThat(supply.internetApplyStatus()).isEqualTo("available");
+        assertThat(supply.mapAddress()).isEqualTo("Seoul commercial complex 105");
+    }
+
+    @Test
     void mapsActualLhDetailFields() throws Exception {
         JsonNode node = objectMapper.readTree("""
                 {
