@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -76,6 +77,25 @@ class RentalServiceTest {
             assertThat(item.applyEndDate()).isEqualTo("2026.06.30");
         });
         verify(mapper).upsert(notice);
+    }
+
+    @Test
+    void throttlesRepeatedLhRefreshesForRentalNoticeLists() {
+        RentalSearchCondition condition = new RentalSearchCondition("", "", "", 1, 12);
+        RentalNotice notice = new RentalNotice(
+                "LH-NEW", "Cached notice", "Seoul", "rental", "public", "open",
+                "2026.06.18", "2026.06.29", "https://apply.lh.or.kr",
+                "03", "06", "10", "063", "api"
+        );
+        when(lhClient.isConfigured()).thenReturn(true);
+        when(lhClient.apiNotices(eq(condition), anyString(), eq("2099.12.31"))).thenReturn(List.of(notice));
+        when(mapper.findByCondition(condition)).thenReturn(List.of(notice));
+        RentalService service = new RentalService(lhClient, mapper);
+
+        service.notices(condition);
+        service.notices(condition);
+
+        verify(lhClient, times(1)).apiNotices(eq(condition), anyString(), eq("2099.12.31"));
     }
 
     @Test
