@@ -23,7 +23,13 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.datasource.url=jdbc:h2:mem:spa-frontend-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
-        "spring.datasource.driver-class-name=org.h2.Driver"
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "happyhome.oauth.kakao.client-id=",
+        "happyhome.oauth.kakao.client-secret=",
+        "happyhome.oauth.naver.client-id=",
+        "happyhome.oauth.naver.client-secret=",
+        "happyhome.oauth.google.client-id=",
+        "happyhome.oauth.google.client-secret="
 })
 @AutoConfigureMockMvc
 class SpaFrontendIntegrationTest {
