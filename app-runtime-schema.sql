@@ -112,6 +112,22 @@ CREATE TABLE IF NOT EXISTS favorite_transfers (
     FOREIGN KEY (transfer_id) REFERENCES transfers (transfer_id)
 );
 
+<<<<<<< HEAD
+=======
+CREATE TABLE IF NOT EXISTS transfer_comments (
+    comment_id INT AUTO_INCREMENT PRIMARY KEY,
+    transfer_id INT NOT NULL,
+    writer_id VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_transfer_comments_transfer (transfer_id, created_at, comment_id),
+    INDEX idx_transfer_comments_writer (writer_id),
+    FOREIGN KEY (transfer_id) REFERENCES transfers (transfer_id) ON DELETE CASCADE,
+    FOREIGN KEY (writer_id) REFERENCES members (user_id) ON DELETE CASCADE
+);
+
+>>>>>>> 03d9a75b479f8cd98c05cc82cf66580557ccc14f
 CREATE TABLE IF NOT EXISTS rental_notice_cache (
     notice_id VARCHAR(40) PRIMARY KEY,
     title VARCHAR(300) NOT NULL,

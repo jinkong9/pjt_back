@@ -30,6 +30,32 @@ class OpenApiJsonParserTest {
     }
 
     @Test
+    void choosesTheNumberedListWithSupplyFields() {
+        String json = """
+                [
+                  {"dsList01":[
+                    {"AR":"31.84"}
+                  ]},
+                  {"dsList02":[
+                    {
+                      "LND_US_DS_CD_NM":"Commercial unit",
+                      "LGDN_DTL_ADR":"Seoul Gangseo",
+                      "LNO":"101",
+                      "AR":"31.84",
+                      "SPL_XPC_AMT":"1000000"
+                    }
+                  ]}
+                ]
+                """;
+
+        List<JsonNode> items = parser.items(json);
+
+        assertThat(items).hasSize(1);
+        assertThat(items.get(0).path("LGDN_DTL_ADR").asText()).isEqualTo("Seoul Gangseo");
+        assertThat(items.get(0).path("SPL_XPC_AMT").asText()).isEqualTo("1000000");
+    }
+
+    @Test
     void readsItemsFromLhDetailScheduleKeys() {
         String json = """
                 [

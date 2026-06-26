@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS members (
     password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    phone VARCHAR(255) NOT NULL
+    phone VARCHAR(255) NOT NULL,
+    rental_notice_email_enabled BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS member_financial_profiles (
@@ -66,6 +67,34 @@ CREATE TABLE IF NOT EXISTS favorite_deals (
     deal_no INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, deal_no)
+);
+
+CREATE TABLE IF NOT EXISTS property_deal_cache (
+    property_deal_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    property_type VARCHAR(30) NOT NULL,
+    deal_type VARCHAR(30) NOT NULL,
+    source_id VARCHAR(220) NOT NULL,
+    lawd_cd VARCHAR(5) NOT NULL,
+    sido_name VARCHAR(30),
+    gugun_name VARCHAR(30),
+    dong_name VARCHAR(80),
+    property_name VARCHAR(160),
+    deal_date VARCHAR(10),
+    deal_amount VARCHAR(40),
+    deposit_amount VARCHAR(40),
+    monthly_rent_amount VARCHAR(40),
+    exclusive_area VARCHAR(40),
+    floor VARCHAR(20),
+    build_year VARCHAR(20),
+    jibun VARCHAR(80),
+    latitude DOUBLE,
+    longitude DOUBLE,
+    source VARCHAR(20),
+    cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_property_deal_cache_source UNIQUE (source_id),
+    INDEX idx_property_deals_type_date (property_type, deal_type, deal_date),
+    INDEX idx_property_deals_region_type (lawd_cd, property_type, deal_type),
+    INDEX idx_property_deals_search (property_name, dong_name)
 );
 
 CREATE TABLE IF NOT EXISTS favorite_rental_notices (
@@ -138,6 +167,26 @@ CREATE TABLE IF NOT EXISTS favorite_transfers (
         ON DELETE CASCADE
 );
 
+<<<<<<< HEAD
+=======
+CREATE TABLE IF NOT EXISTS transfer_comments (
+    comment_id INT AUTO_INCREMENT PRIMARY KEY,
+    transfer_id INT NOT NULL,
+    writer_id VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_transfer_comments_transfer (transfer_id, created_at, comment_id),
+    INDEX idx_transfer_comments_writer (writer_id),
+    CONSTRAINT fk_transfer_comments_transfer
+        FOREIGN KEY (transfer_id) REFERENCES transfers(transfer_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_transfer_comments_member
+        FOREIGN KEY (writer_id) REFERENCES members(user_id)
+        ON DELETE CASCADE
+);
+
+>>>>>>> 03d9a75b479f8cd98c05cc82cf66580557ccc14f
 CREATE TABLE IF NOT EXISTS rental_notice_cache (
     notice_id VARCHAR(40) PRIMARY KEY,
     title VARCHAR(300) NOT NULL,
@@ -175,10 +224,16 @@ CREATE TABLE IF NOT EXISTS lh_notice_supplies (
     notice_id VARCHAR(40) NOT NULL,
     `usage` VARCHAR(120),
     address VARCHAR(300),
+    lot_number VARCHAR(120),
     area VARCHAR(80),
     expected_amount VARCHAR(300),
     house_type VARCHAR(120),
     household_count VARCHAR(80),
+    internet_apply_status VARCHAR(120),
+    map_address VARCHAR(500),
+    map_url VARCHAR(1000),
+    latitude DOUBLE,
+    longitude DOUBLE,
     raw_json TEXT,
     cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_lh_notice_supplies_notice

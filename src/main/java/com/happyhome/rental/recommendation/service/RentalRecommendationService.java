@@ -49,18 +49,27 @@ public class RentalRecommendationService {
     }
 
     public List<RentalRecommendation> recommend(String userId, int limit) {
+        return recommend(userId, limit, RecommendationCriteria.empty());
+    }
+
+    public List<RentalRecommendation> recommend(String userId, int limit, RecommendationCriteria criteria) {
         FinancialProfile profile = financialProfileService.findByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Financial profile is required for LH recommendations."));
-        List<RentalNotice> notices = rentalService.notices(new RentalSearchCondition("", "", "", 1, Math.max(limit * 3, 30)));
+        RentalSearchCondition condition = new RentalSearchCondition("", "", "", 1, Math.max(limit * 3, 30));
+        List<RentalNotice> notices = rentalService.cachedNotices(condition);
+        if (notices.isEmpty()) {
+            notices = rentalService.notices(condition);
+        }
+        RecommendationCriteria normalizedCriteria = criteria == null ? RecommendationCriteria.empty() : criteria.normalized();
         return notices.stream()
-                .map(notice -> score(notice, profile))
+                .map(notice -> score(notice, profile, normalizedCriteria))
                 .sorted(Comparator.comparingInt(RentalRecommendation::score).reversed())
                 .limit(limit)
                 .toList();
     }
 
-    private RentalRecommendation score(RentalNotice notice, FinancialProfile profile) {
-        RentalNoticeDetail detail = rentalService.detail(notice.noticeId());
+    private RentalRecommendation score(RentalNotice notice, FinancialProfile profile, RecommendationCriteria criteria) {
+        RentalNoticeDetail detail = rentalService.cachedDetail(notice.noticeId());
         List<String> reasons = new ArrayList<>();
         int score = 20;
 
@@ -113,6 +122,17 @@ public class RentalRecommendationService {
             reasons.add("실수요자 선호도가 높은 유형입니다.");
         }
 
+        if (matchesAny(notice.regionName(), criteria.desiredRegions())) {
+            score += 35;
+            reasons.add("희망 지역과 일치하는 공고입니다.");
+        }
+
+        if (matchesAny(notice.detailType(), criteria.rentalTypes())
+                || matchesAny(notice.title(), criteria.rentalTypes())) {
+            score += 25;
+            reasons.add("관심 임대 유형과 일치합니다.");
+        }
+
         return new RentalRecommendation(notice, Math.max(score, 0), List.copyOf(reasons), detail.supplies());
     }
 
@@ -158,7 +178,39 @@ public class RentalRecommendationService {
         return false;
     }
 
+    private boolean matchesAny(String text, List<String> needles) {
+        String haystack = lower(text);
+        return needles.stream()
+                .map(this::lower)
+                .filter(needle -> !needle.isBlank())
+                .anyMatch(haystack::contains);
+    }
+
     private String lower(String value) {
         return value == null ? "" : value.toLowerCase();
+    }
+
+    public record RecommendationCriteria(
+            List<String> desiredRegions,
+            List<String> rentalTypes
+    ) {
+        public static RecommendationCriteria empty() {
+            return new RecommendationCriteria(List.of(), List.of());
+        }
+
+        RecommendationCriteria normalized() {
+            return new RecommendationCriteria(normalize(desiredRegions), normalize(rentalTypes));
+        }
+
+        private static List<String> normalize(List<String> values) {
+            if (values == null) {
+                return List.of();
+            }
+            return values.stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .toList();
+        }
     }
 }

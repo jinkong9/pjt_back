@@ -10,8 +10,8 @@ public class AnalysisScoreService {
     public AnalysisScore calculate(CommercialSummary commercial, TrafficRiskSummary traffic, TransitSummary transit) {
         int commercialScore = commercialScore(commercial);
         int transitScore = transitScore(transit);
-        int trafficSafetyScore = trafficSafetyScore(traffic);
-        int total = clamp(commercialScore + transitScore + trafficSafetyScore, 0, 100);
+        int trafficSafetyScore = 0;
+        int total = clamp(commercialScore + transitScore, 0, 100);
 
         return new AnalysisScore(
                 total,
@@ -19,7 +19,7 @@ public class AnalysisScoreService {
                 transitScore,
                 trafficSafetyScore,
                 level(total),
-                message(commercialScore, transitScore, trafficSafetyScore, traffic)
+                message(commercialScore, transitScore, traffic)
         );
     }
 
@@ -28,7 +28,8 @@ public class AnalysisScoreService {
         int foodAndCafe = Math.min(8, (commercial.foodCount() + commercial.cafeCount()) / 2);
         int medical = Math.min(7, commercial.medicalCount());
         int convenience = Math.min(5, commercial.convenienceCount());
-        return density + foodAndCafe + medical + convenience;
+        int rawScore = density + foodAndCafe + medical + convenience;
+        return Math.min(50, (int) Math.round(rawScore * 50 / 30.0));
     }
 
     private int transitScore(TransitSummary transit) {
@@ -48,17 +49,7 @@ public class AnalysisScoreService {
         if (transit.busStopWithin1000m() >= 8) {
             score += 1;
         }
-        return Math.min(40, score);
-    }
-
-    private int trafficSafetyScore(TrafficRiskSummary traffic) {
-        int score = switch (traffic.eventCount()) {
-            case 0 -> 25;
-            case 1 -> 18;
-            case 2, 3 -> 12;
-            default -> 6;
-        };
-        return clamp(score - traffic.roadworkCount() * 5, 0, 25);
+        return Math.min(50, (int) Math.round(score * 50 / 30.0));
     }
 
     private String level(int total) {
@@ -80,14 +71,13 @@ public class AnalysisScoreService {
     private String message(
             int commercialScore,
             int transitScore,
-            int trafficSafetyScore,
             TrafficRiskSummary traffic
     ) {
-        return "상권 %d점, 대중교통 %d점, 교통 안전 %d점입니다. 교통 이벤트 %d건과 도로공사 %d건을 반영했습니다."
+        return "상권 %d점, 대중교통 %d점으로 총 %d점입니다. 교통 이벤트 %d건과 도로공사 %d건은 점수에 반영하지 않고 참고 건수로 제공합니다."
                 .formatted(
                         commercialScore,
                         transitScore,
-                        trafficSafetyScore,
+                        commercialScore + transitScore,
                         traffic.eventCount(),
                         traffic.roadworkCount()
                 );

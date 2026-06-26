@@ -30,8 +30,8 @@ class RentalNoticeMapperTest {
         insertNotice("BUSAN-001", "Busan Notice", "Busan");
         insertDetail("SEOUL-001", "Seoul contract address", "Seoul detail", "2026-07-01", "2026-07-02", "02-1111-2222");
         insertDetail("BUSAN-001", "Busan contract address", "Busan detail", "2026-08-01", "2026-08-02", "051-1111-2222");
-        insertSupply("SEOUL-001", "Seoul usage", "Seoul supply address", "39A", "10000000", "A", "10");
-        insertSupply("BUSAN-001", "Busan usage", "Busan supply address", "46B", "20000000", "B", "20");
+        insertSupply("SEOUL-001", "Seoul usage", "Seoul supply address", "101", "39A", "10000000", "A", "10");
+        insertSupply("BUSAN-001", "Busan usage", "Busan supply address", "202", "46B", "20000000", "B", "20");
 
         RentalDetail detail = rentalNoticeMapper.findDetailByNoticeId("BUSAN-001").orElseThrow();
         List<RentalSupply> supplies = rentalNoticeMapper.findSuppliesByNoticeId("BUSAN-001");
@@ -46,15 +46,17 @@ class RentalNoticeMapperTest {
         assertThat(supplies).containsExactly(new RentalSupply(
                 "Busan usage",
                 "Busan supply address",
-                "",
+                "202",
                 "46B",
                 "20000000",
                 "20000000",
                 "B",
                 "20",
+                "available",
+                "Busan supply address 202",
                 "",
-                "Busan supply address",
-                ""
+                null,
+                null
         ));
     }
 
@@ -90,6 +92,7 @@ class RentalNoticeMapperTest {
             String noticeId,
             String usage,
             String address,
+            String lotNumber,
             String area,
             String expectedAmount,
             String houseType,
@@ -97,8 +100,10 @@ class RentalNoticeMapperTest {
     ) {
         jdbcTemplate.update("""
                 INSERT INTO lh_notice_supplies (
-                    notice_id, `usage`, address, area, expected_amount, house_type, household_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, noticeId, usage, address, area, expectedAmount, houseType, householdCount);
+                    notice_id, `usage`, address, lot_number, area, expected_amount, house_type,
+                    household_count, internet_apply_status, map_address
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', ?)
+                """, noticeId, usage, address, lotNumber, area, expectedAmount, houseType, householdCount,
+                address + " " + lotNumber);
     }
 }
